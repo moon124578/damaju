@@ -1,0 +1,449 @@
+/* App.css - 메인 레이아웃 및 컴포넌트 스타일 */
+
+/* 1. 기본 레이아웃 구조 */
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-main);
+  overflow: hidden;
+}
+
+/* 2. 사이드바 스타일 */
+.sidebar {
+  width: 240px;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+}
+
+.sidebar-title {
+  font-family: var(--font-title);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-mint);
+  text-align: center;
+  margin-bottom: 32px;
+  letter-spacing: 1.5px;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.menu-item {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.menu-item.active {
+  background-color: rgba(0, 245, 212, 0.1);
+  color: var(--color-mint);
+  border-left: 3px solid var(--color-mint);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.btn-logout {
+  background: #2b2b36;
+  color: var(--text-primary);
+  border: 1px solid #3d3d4a;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-logout:hover {
+  background: #383845;
+}
+
+/* 3. 메인 콘텐츠 영역 */
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+  overflow-y: auto;
+}
+
+.content-header {
+  margin-bottom: 24px;
+}
+
+.content-title {
+  font-family: var(--font-title);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* 4. 지표 카드 (대시보드) */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.metric-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-value {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.metric-value.mint {
+  color: var(--color-mint);
+}
+
+.metric-value.blue {
+  color: var(--color-blue);
+}
+
+.metric-value.danger {
+  color: var(--color-danger);
+}
+
+/* 5. 버튼 스타일 */
+.btn {
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  border: none;
+}
+
+.btn-primary {
+  background-color: var(--color-mint);
+  color: #0f0f11;
+}
+
+.btn-primary:hover {
+  background-color: #00e5c4;
+  box-shadow: 0 0 12px rgba(0, 245, 212, 0.4);
+}
+
+.btn-secondary {
+  background-color: #2b2b36;
+  color: var(--text-primary);
+  border: 1px solid #3d3d4a;
+}
+
+.btn-secondary:hover {
+  background-color: #383845;
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: var(--text-primary);
+}
+
+.btn-danger:hover {
+  background-color: #ef3333;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+/* 6. 입력 필드, 셀렉트박스 */
+.input-control {
+  background-color: #1e1e24;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 13px;
+  outline: none;
+  transition: var(--transition-smooth);
+}
+
+.input-control:focus {
+  border-color: var(--color-mint);
+}
+
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.search-bar .input-control {
+  flex: 1;
+}
+
+/* 7. 테이블 스타일 */
+.table-container {
+  overflow-x: auto;
+  margin-bottom: 24px;
+}
+
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.custom-table th {
+  background-color: #24242b;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--border-color);
+  font-size: 12px;
+}
+
+.custom-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.custom-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.custom-table tr.warning-row {
+  background-color: var(--color-danger-bg) !important;
+}
+
+.custom-table tr.warning-row td {
+  border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* 8. 모달창 (Modal) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  width: 450px;
+  max-width: 90%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modalScaleUp 0.2s ease-out;
+}
+
+@keyframes modalScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+}
+
+.modal-title {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+/* 9. 로그인 뷰 */
+.login-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-main);
+}
+
+.login-card {
+  width: 380px;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-title {
+  font-family: var(--font-title);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-mint);
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.login-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: -12px;
+  margin-bottom: 12px;
+}
+
+/* 10. 스플리터 레이아웃 (직원 탭) */
+.splitter-container {
+  display: flex;
+  gap: 24px;
+  height: 100%;
+}
+
+.splitter-left {
+  flex: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.splitter-right {
+  flex: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 11. 급여 정산 박스 */
+.payroll-box {
+  background-color: #1e1e24;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payroll-summary-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 20px;
+  font-size: 13px;
+}
+
+.payroll-summary-label {
+  color: var(--text-muted);
+}
+
+.payroll-summary-value {
+  font-weight: bold;
+  text-align: right;
+}
+
+.payroll-summary-value.highlight {
+  color: var(--color-mint);
+  font-size: 16px;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.status-tag.settled {
+  background-color: rgba(0, 245, 212, 0.15);
+  color: var(--color-mint);
+}
+
+.status-tag.unsettled {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger);
+}
