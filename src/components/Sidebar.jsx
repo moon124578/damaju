@@ -7,6 +7,7 @@ const MENU_ITEMS = [
   { id: 'finance',    label: '정산서 발행',     icon: 'receipt_long' },
   { id: 'employees',  label: '직원 정산',       icon: 'payments' },
   { id: 'products',   label: '상품 관리',       icon: 'inventory_2' },
+  { id: 'settings',   label: '설정',           icon: 'settings' },
 ];
 
 export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMobile, sidebarOpen, setSidebarOpen }) {

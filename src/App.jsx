@@ -10,6 +10,7 @@ import Orders from './components/Orders';
 import Products from './components/Products';
 import Employees from './components/Employees';
 import Finance from './components/Finance';
+import Settings from './components/Settings';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -19,6 +20,14 @@ export default function App() {
   // 모바일 및 사이드바 제어 상태
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // 테마 상태 추가 및 동기화
+  const [theme, setTheme] = useState(localStorage.getItem('app_theme') || 'light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app_theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -129,6 +138,7 @@ export default function App() {
           {activeTab === 'products' && <Products onDataChange={triggerRefresh} />}
           {activeTab === 'employees' && <Employees onDataChange={triggerRefresh} />}
           {activeTab === 'finance' && <Finance onDataChange={triggerRefresh} />}
+          {activeTab === 'settings' && <Settings theme={theme} setTheme={setTheme} />}
         </div>
       </div>
     </div>

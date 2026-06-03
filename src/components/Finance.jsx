@@ -10,12 +10,21 @@ export default function Finance({ onDataChange }) {
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [showToast, setShowToast] = useState(false);
 
-  // 계좌 정보 상태 추가
-  const [bankInfo, setBankInfo] = useState('신한은행 110-456-789012 (예금주: 스마트주스토어)');
+  // 계좌 정보 상태 추가 (로컬스토리지 연동)
+  const [bankInfo, setBankInfo] = useState(
+    localStorage.getItem('bank_account_info') || '신한은행 110-456-789012 (예금주: 스마트주스토어)'
+  );
   const todayStr = new Date().toISOString().substring(0, 10);
 
   useEffect(() => {
     fetchInitialData();
+
+    // 설정 페이지에서 계좌번호 변경 시 실시간 동기화
+    const updateAccount = () => {
+      setBankInfo(localStorage.getItem('bank_account_info') || '신한은행 110-456-789012 (예금주: 스마트주스토어)');
+    };
+    window.addEventListener('bank_info_changed', updateAccount);
+    return () => window.removeEventListener('bank_info_changed', updateAccount);
   }, []);
 
   const fetchInitialData = async () => {

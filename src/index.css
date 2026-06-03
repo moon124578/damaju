@@ -22,6 +22,18 @@
   --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
 }
 
+html[data-theme='dark'] {
+  --bg-main: #0b0f19;
+  --bg-card: #151d30;
+  --bg-sidebar: #111827;
+  --border-color: #1f2937;
+  --text-primary: #f9fafb;
+  --text-muted: #9ca3af;
+  --color-mint: #38bdf8;
+  --color-mint-hover: #0ea5e9;
+  --color-danger-bg: rgba(239, 68, 68, 0.1);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
