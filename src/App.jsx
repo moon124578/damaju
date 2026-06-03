@@ -13,7 +13,17 @@ import Finance from './components/Finance';
 import Settings from './components/Settings';
 
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('logged_in_user');
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -43,11 +53,13 @@ export default function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
+    localStorage.setItem('logged_in_user', JSON.stringify(userData));
     setActiveTab('dashboard');
   };
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('logged_in_user');
     setActiveTab('dashboard');
   };
 
