@@ -14,7 +14,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
   return (
     <aside style={{
       position: 'fixed', left: 0, top: 0, height: '100%', width: '240px',
-      background: '#ffffff', borderRight: '1px solid #bcc8d1',
+      background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-color)',
       display: 'flex', flexDirection: 'column',
       padding: '24px 0', gap: '16px', zIndex: 50,
       fontFamily: "'Hanken Grotesk', 'Malgun Gothic', sans-serif",
@@ -50,7 +50,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
 
       {/* 네비게이션 */}
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 12px' }}>
-        {MENU_ITEMS.map(item => {
+        {MENU_ITEMS.filter(item => item.id !== 'settings' || user?.username === 'admin').map(item => {
           const isActive = activeTab === item.id;
           return (
             <button
@@ -87,7 +87,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
       {/* 사용자 푸터 */}
       <div style={{
         marginTop: 'auto', padding: '16px 24px 0',
-        borderTop: '1px solid #bcc8d1',
+        borderTop: '1px solid var(--border-color)',
         display: 'flex', alignItems: 'center', gap: '12px',
       }}>
         <div style={{
@@ -98,10 +98,10 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
           {(user?.name || '관리자').charAt(0)}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#151c27', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {user?.name || '관리자'}
           </div>
-          <div style={{ fontSize: '11px', color: '#6d7980' }}>시스템 관리자</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>시스템 관리자</div>
         </div>
         <button
           onClick={onLogout}

@@ -14,6 +14,12 @@ export default function Finance({ onDataChange }) {
   const [bankInfo, setBankInfo] = useState(
     localStorage.getItem('bank_account_info') || '신한은행 110-456-789012 (예금주: 스마트주스토어)'
   );
+  
+  // 인보이스 폰트 크기 상태 추가 (로컬스토리지 연동)
+  const [invoiceFontSize, setInvoiceFontSize] = useState(
+    localStorage.getItem('invoice_font_size') || '14'
+  );
+  
   const todayStr = new Date().toISOString().substring(0, 10);
 
   useEffect(() => {
@@ -23,8 +29,18 @@ export default function Finance({ onDataChange }) {
     const updateAccount = () => {
       setBankInfo(localStorage.getItem('bank_account_info') || '신한은행 110-456-789012 (예금주: 스마트주스토어)');
     };
+    // 설정 페이지에서 폰트크기 변경 시 실시간 동기화
+    const updateStyle = () => {
+      setInvoiceFontSize(localStorage.getItem('invoice_font_size') || '14');
+    };
+    
     window.addEventListener('bank_info_changed', updateAccount);
-    return () => window.removeEventListener('bank_info_changed', updateAccount);
+    window.addEventListener('invoice_style_changed', updateStyle);
+    
+    return () => {
+      window.removeEventListener('bank_info_changed', updateAccount);
+      window.removeEventListener('invoice_style_changed', updateStyle);
+    };
   }, []);
 
   const fetchInitialData = async () => {
@@ -246,32 +262,30 @@ export default function Finance({ onDataChange }) {
         <div style={{ gridColumn: 'span 7', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {selectedCustomerId && currentInvoiceCustomer ? (
             <>
-              <div id="invoice-capture" className="receipt-paper" style={{ background: '#ffffff', border: '1px solid #bcc8d1', borderTop: '4px solid #006688', borderRadius: '8px', padding: '32px', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexShrink: 0 }}>
-                  <div>
-                    <h4 style={{ fontSize: '32px', fontWeight: 700, color: '#151c27', margin: 0, letterSpacing: '-0.02em', fontFamily: "'Hanken Grotesk', sans-serif" }}>INVOICE</h4>
-                    <p style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", color: '#6d7980', margin: '4px 0 0 0' }}>
-                      NO. INV-{todayStr.replace(/-/g, '')}-{String(currentInvoiceCustomer.customer_id).padStart(4, '0')}
-                    </p>
-                  </div>
+              <div id="invoice-capture" className="receipt-paper" style={{ background: '#ffffff', border: '1px solid #bcc8d1', borderTop: '4px solid #006688', borderRadius: '8px', padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', flexShrink: 0, width: '100%' }}>
+                  <h4 style={{ fontSize: `${Number(invoiceFontSize) + 20}px`, fontWeight: 800, color: '#151c27', margin: 0, letterSpacing: '0.05em', fontFamily: "'Hanken Grotesk', sans-serif", textAlign: 'center' }}>INVOICE</h4>
+                  <p style={{ fontSize: `${Number(invoiceFontSize) - 2}px`, fontFamily: "'JetBrains Mono', monospace", color: '#6d7980', margin: '6px 0 0 0', textAlign: 'center' }}>
+                    NO. INV-{todayStr.replace(/-/g, '')}-{String(currentInvoiceCustomer.customer_id).padStart(4, '0')}
+                  </p>
                 </div>
 
                 {/* 고객 및 청구처 */}
-                <div style={{ padding: '16px', background: '#f0f3ff', borderRadius: '8px', marginBottom: '24px', flexShrink: 0 }}>
-                  <div style={{ fontWeight: 700, color: '#151c27', fontSize: '16px' }}>
+                <div style={{ padding: '12px 16px', background: '#f0f3ff', borderRadius: '8px', marginBottom: '16px', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, color: '#151c27', fontSize: `${Number(invoiceFontSize) + 2}px` }}>
                     {currentInvoiceCustomer.nickname ? `[${currentInvoiceCustomer.nickname}] ` : ''}{currentInvoiceCustomer.name} 님
                   </div>
                 </div>
 
-                {/* 청구 상세 내역 테이블 (모바일 가독성을 위해 폰트 및 패딩 확대) */}
+                {/* 청구 상세 내역 테이블 (모바일 가독성을 위해 설정된 글자 크기 동적 반영) */}
                 <div style={{ flex: 1 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #bcc8d1', background: '#f0f3ff' }}>
-                        <th style={{ textAlign: 'left', padding: '12px 12px', color: '#6d7980', fontSize: '12px', textTransform: 'uppercase', fontWeight: 700 }}>구매일자</th>
-                        <th style={{ textAlign: 'left', padding: '12px 12px', color: '#6d7980', fontSize: '12px', textTransform: 'uppercase', fontWeight: 700 }}>상품명</th>
-                        <th style={{ textAlign: 'center', padding: '12px 8px', color: '#6d7980', fontSize: '12px', fontWeight: 700 }}>수량</th>
-                        <th style={{ textAlign: 'right', padding: '12px 12px', color: '#6d7980', fontSize: '12px', fontWeight: 700 }}>금액</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px', color: '#6d7980', fontSize: `${Number(invoiceFontSize) - 2}px`, textTransform: 'uppercase', fontWeight: 700 }}>구매일자</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px', color: '#6d7980', fontSize: `${Number(invoiceFontSize) - 2}px`, textTransform: 'uppercase', fontWeight: 700 }}>상품명</th>
+                        <th style={{ textAlign: 'center', padding: '10px 8px', color: '#6d7980', fontSize: `${Number(invoiceFontSize) - 2}px`, fontWeight: 700 }}>수량</th>
+                        <th style={{ textAlign: 'right', padding: '10px 12px', color: '#6d7980', fontSize: `${Number(invoiceFontSize) - 2}px`, fontWeight: 700 }}>금액</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -279,17 +293,19 @@ export default function Finance({ onDataChange }) {
                         const statusColor = o.order_status === '배송 전' ? '#006688' : '#e65100';
                         return (
                           <tr key={o.order_id} style={{ borderBottom: '1px solid #cbd5e1' }}>
-                            <td style={{ padding: '14px 12px', color: '#475569', fontSize: '13px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
+                            <td style={{ padding: '10px 12px', color: '#475569', fontSize: `${Number(invoiceFontSize) - 1}px`, fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
                               {o.order_date ? new Date(o.order_date).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) : '-'}
                             </td>
-                            <td style={{ padding: '14px 12px', color: '#0f172a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: '15px' }}>{o.product_name}</span>
-                              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', color: statusColor, background: statusColor + '15', fontWeight: 700 }}>
-                                {o.order_status}
-                              </span>
+                            <td style={{ padding: '10px 12px', color: '#0f172a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: `${Number(invoiceFontSize) + 1}px` }}>{o.product_name}</span>
+                              {o.order_status !== '배송 전' && (
+                                <span style={{ fontSize: `${Number(invoiceFontSize) - 4}px`, padding: '1px 4px', borderRadius: '4px', color: statusColor, background: statusColor + '15', fontWeight: 700 }}>
+                                  {o.order_status}
+                                </span>
+                              )}
                             </td>
-                            <td style={{ padding: '14px 8px', textAlign: 'center', fontSize: '14px', fontWeight: 700 }}>{o.quantity}</td>
-                            <td style={{ padding: '14px 12px', textAlign: 'right', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                            <td style={{ padding: '10px 8px', textAlign: 'center', fontSize: `${Number(invoiceFontSize)}px`, fontWeight: 700 }}>{o.quantity}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: `${Number(invoiceFontSize) + 1}px`, fontWeight: 800, color: '#0f172a' }}>
                               ₩{o.total_price.toLocaleString()}
                             </td>
                           </tr>
@@ -299,17 +315,22 @@ export default function Finance({ onDataChange }) {
                   </table>
                 </div>
 
-                {/* 정산 합계 (글자 크기 강조) */}
-                <div style={{ borderTop: '3px dashed #006688', paddingTop: '18px', marginTop: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#006688' }}>Grand Total</span>
-                  <span style={{ fontSize: '28px', fontWeight: 800, color: '#006688' }}>
+                {/* 정산 합계 (테이블 바로 밑으로 간격 좁힘) */}
+                <div style={{ borderTop: '2px dashed #006688', paddingTop: '12px', marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: `${Number(invoiceFontSize) + 2}px`, fontWeight: 700, color: '#006688' }}>Grand Total</span>
+                  <span style={{ fontSize: `${Number(invoiceFontSize) + 10}px`, fontWeight: 800, color: '#006688' }}>
                     ₩{currentInvoiceTotal.toLocaleString()}
                   </span>
                 </div>
 
-                {/* 입금 계좌 (글자 크기 확대) */}
-                <div style={{ marginTop: '28px', fontSize: '14px', fontWeight: 700, color: '#1e293b', padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1.5px solid #bcc8d1', flexShrink: 0, textAlign: 'center', letterSpacing: '-0.3px' }}>
+                {/* 입금 계좌 (글자 크기 및 간격 조정) */}
+                <div style={{ marginTop: '16px', fontSize: `${Number(invoiceFontSize) + 1}px`, fontWeight: 700, color: '#1e293b', padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1.5px solid #bcc8d1', flexShrink: 0, textAlign: 'center', letterSpacing: '-0.3px' }}>
                   {bankInfo}
+                </div>
+
+                {/* 하단 감사 멘트 추가 */}
+                <div style={{ marginTop: '16px', fontSize: `${Number(invoiceFontSize) - 1}px`, color: '#6d7980', textAlign: 'center', fontWeight: 500, fontStyle: 'italic', letterSpacing: '-0.3px', borderTop: '1px solid #e2e8f8', paddingTop: '12px' }}>
+                  예쁜 거, 다 담아드릴게요. 이용해 주셔서 감사합니다! ❤️
                 </div>
               </div>
 
@@ -353,18 +374,6 @@ export default function Finance({ onDataChange }) {
                   <span className="material-symbols-outlined">content_copy</span>
                   클립보드 복사
                 </button>
-              </div>
-
-              {/* 입금 계좌 설정 직접 입력 칸 */}
-              <div style={{ marginTop: '16px', background: '#ffffff', border: '1px solid #bcc8d1', borderRadius: '8px', padding: '16px', flexShrink: 0 }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#3d484f', marginBottom: '6px' }}>입금 계좌 설정</label>
-                <input 
-                  type="text" 
-                  value={bankInfo} 
-                  onChange={(e) => setBankInfo(e.target.value)} 
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '6px', fontSize: '13px', outline: 'none', fontFamily: "'Hanken Grotesk', sans-serif" }}
-                  placeholder="인보이스에 노출될 계좌번호를 입력하세요"
-                />
               </div>
             </>
           ) : (

@@ -143,7 +143,7 @@ export default function Orders({ onDataChange }) {
 
   const selectCust = (cust) => {
     setSelectedCustomer(cust);
-    setCustQuery(cust.nickname ? `[${cust.nickname}] ${cust.name}` : cust.name);
+    setCustQuery(cust.nickname || cust.name);
     setShowCustDropdown(false);
   };
 
@@ -196,15 +196,38 @@ export default function Orders({ onDataChange }) {
       return;
     }
 
-    const unitPrice = selectedProduct ? selectedProduct.selling_price : 30000;
+    // 고객정보 유효성 검증
+    const typedQuery = custQuery.trim();
+    // 닉네임 혹은 이름이 완벽히 일치하거나, 자동완성 포맷 "[닉네임] 이름" 형태인 경우 추출하여 찾음
+    let matchCust = customers.find(c => c.nickname === typedQuery || c.name === typedQuery);
+    
+    if (!matchCust && typedQuery.startsWith('[') && typedQuery.includes(']')) {
+      const closingBracketIdx = typedQuery.indexOf(']');
+      const parsedNickname = typedQuery.substring(1, closingBracketIdx).trim();
+      matchCust = customers.find(c => c.nickname === parsedNickname);
+    }
+
+    if (!matchCust) {
+      alert('회원정보(고객)에 존재하지 않는 닉네임/이름입니다. 회원정보 탭에서 먼저 고객을 등록해주세요.');
+      return;
+    }
+
+    // 상품정보 유효성 검증
+    const matchProd = products.find(p => p.name === prodQuery.trim());
+    if (!matchProd) {
+      alert('상품관리에 등록되지 않은 상품명입니다. 정확한 상품명을 입력해주세요.');
+      return;
+    }
+
+    const unitPrice = matchProd.selling_price;
     const staffId = orderStaffId ? Number(orderStaffId) : null;
 
     const newItem = {
       id: Date.now() + Math.random(),
       custQuery: custQuery.trim(),
-      selectedCustomer,
+      selectedCustomer: matchCust,
       prodQuery: prodQuery.trim(),
-      selectedProduct,
+      selectedProduct: matchProd,
       quantity: Number(qty),
       unitPrice,
       totalPrice: unitPrice * Number(qty),
@@ -234,26 +257,16 @@ export default function Orders({ onDataChange }) {
     setLoading(true);
     try {
       for (const item of cartItems) {
-        let custId;
-        if (item.selectedCustomer) {
-          custId = item.selectedCustomer.customer_id;
-        } else {
+        let custId = item.selectedCustomer ? item.selectedCustomer.customer_id : null;
+        if (!custId) {
           const match = customers.find(c => c.name === item.custQuery || c.nickname === item.custQuery);
           if (match) {
             custId = match.customer_id;
-          } else {
-            const { data: newCust, error: ncErr } = await supabase
-              .from('customers')
-              .insert({
-                name: item.custQuery,
-                phone: '010-0000-0000',
-              })
-              .select('customer_id')
-              .single();
-            if (ncErr) throw ncErr;
-            custId = newCust.customer_id;
-            setCustomers([...customers, newCust]);
           }
+        }
+
+        if (!custId) {
+          throw new Error(`고객 정보를 찾을 수 없습니다: ${item.custQuery}`);
         }
 
         const { error: ordErr } = await supabase
@@ -274,12 +287,6 @@ export default function Orders({ onDataChange }) {
       setCartItems([]);
       setCustQuery('');
       setSelectedCustomer(null);
-
-      const { data: updatedCusts } = await supabase
-        .from('customers')
-        .select('customer_id, nickname, name, phone, address')
-        .order('customer_id', { ascending: true });
-      setCustomers(updatedCusts || []);
 
       await fetchOrders();
       onDataChange();

@@ -57,7 +57,7 @@ export default function Login({ onLoginSuccess }) {
             <input
               type="text"
               className="input-control"
-              placeholder="관리자 ID (기본: admin)"
+              placeholder="관리자 ID"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={loading}
@@ -68,7 +68,7 @@ export default function Login({ onLoginSuccess }) {
             <input
               type="password"
               className="input-control"
-              placeholder="비밀번호 (기본: admin123)"
+              placeholder="비밀번호"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}

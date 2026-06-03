@@ -1621,4 +1621,173 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════
+   GLOBAL DARK MODE OVERRIDES (전체 다크모드 보정 스타일)
+   ═══════════════════════════════════════════════════ */
+html[data-theme='dark'] body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme='dark'] header,
+html[data-theme='dark'] aside,
+html[data-theme='dark'] .sidebar {
+  background-color: var(--bg-sidebar) !important;
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme='dark'] .glass-card,
+html[data-theme='dark'] .metric-card,
+html[data-theme='dark'] .calendar-container,
+html[data-theme='dark'] .memo-board-container,
+html[data-theme='dark'] .text-parser-box {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 인라인 흰색 배경 카드들 강제 다크화 */
+html[data-theme='dark'] div[style*="background: rgb(255, 255, 255)"],
+html[data-theme='dark'] div[style*="background: #ffffff"],
+html[data-theme='dark'] div[style*="background-color: #ffffff"],
+html[data-theme='dark'] div[style*="background-color: rgb(255, 255, 255)"] {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme='dark'] .content-title,
+html[data-theme='dark'] h1,
+html[data-theme='dark'] h2,
+html[data-theme='dark'] h3,
+html[data-theme='dark'] h4,
+html[data-theme='dark'] h5,
+html[data-theme='dark'] span[style*="color: rgb(21, 28, 39)"],
+html[data-theme='dark'] span[style*="color: #151c27"] {
+  color: var(--text-primary) !important;
+}
+
+/* 폼 인풋 및 셀렉트 박스 다크화 */
+html[data-theme='dark'] input,
+html[data-theme='dark'] select,
+html[data-theme='dark'] textarea {
+  background-color: #111827 !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.6;
+}
+
+/* 테이블 강제 다크화 */
+html[data-theme='dark'] .custom-table,
+html[data-theme='dark'] .stitch-table {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme='dark'] .custom-table th,
+html[data-theme='dark'] .stitch-table th,
+html[data-theme='dark'] tr[style*="background: rgb(240, 243, 255)"],
+html[data-theme='dark'] tr[style*="background: #f0f3ff"] {
+  background-color: #1e293b !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme='dark'] .custom-table td,
+html[data-theme='dark'] .stitch-table td,
+html[data-theme='dark'] tr.stitch-tr td {
+  border-bottom: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  background-color: transparent !important;
+}
+
+html[data-theme='dark'] tr.stitch-tr:hover td,
+html[data-theme='dark'] .custom-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 메모장 다크모드 보정 (디지털 메모장 내부는 다크모드 적용 제외) */
+html[data-theme='dark'] .memo-board {
+  background-color: #111827 !important;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 0) !important;
+}
+
+html[data-theme='dark'] .sticky-note {
+  background-color: inherit !important;
+  color: #121214 !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-theme='dark'] .sticky-note-textarea {
+  background-color: transparent !important;
+  color: #1a1a1e !important;
+}
+
+html[data-theme='dark'] .sticky-note-header,
+html[data-theme='dark'] .sticky-note-header span {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-theme='dark'] .btn-delete-note {
+  color: rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-theme='dark'] .btn-delete-note:hover {
+  color: #ba1a1a !important;
+}
+
+/* 다크모드일 때 사이드바 메뉴 글자색 가독성 개선 */
+html[data-theme='dark'] aside nav button,
+html[data-theme='dark'] .sidebar-menu .menu-item {
+  color: #cbd5e1 !important; /* 기본보다 밝은 회색 */
+}
+
+html[data-theme='dark'] aside nav button:hover,
+html[data-theme='dark'] .sidebar-menu .menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+/* 캘린더 다크모드 보정 */
+html[data-theme='dark'] .calendar-day-cell {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme='dark'] .calendar-day-cell.active-day:hover {
+  background-color: rgba(56, 189, 248, 0.08) !important;
+}
+
+html[data-theme='dark'] .calendar-sales-amount {
+  color: var(--text-primary) !important;
+}
+
+/* 자동완성 드롭다운 다크모드 */
+html[data-theme='dark'] .autocomplete-dropdown {
+  background-color: #1f2937 !important;
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme='dark'] .suggestion-item {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme='dark'] .suggestion-item:hover,
+html[data-theme='dark'] .suggestion-item.active {
+  background-color: #374151 !important;
+}
+
+/* 정산 대기 목록 리스트 호버 다크모드 */
+html[data-theme='dark'] li[style*="background: rgb(255, 255, 255)"],
+html[data-theme='dark'] li[style*="background: #ffffff"] {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+
 

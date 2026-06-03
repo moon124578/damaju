@@ -124,7 +124,7 @@ export default function App() {
           marginLeft: isMobile ? '0' : '240px',
           paddingTop: isMobile ? '60px' : '0',
           overflowY: activeTab === 'dashboard' && !isMobile ? 'hidden' : 'auto',
-          background: '#f9f9ff',
+          background: 'var(--bg-main)',
           padding: activeTab === 'dashboard' ? '0' : (isMobile ? '16px' : '32px'),
           boxSizing: 'border-box',
           minWidth: 0,
@@ -138,7 +138,7 @@ export default function App() {
           {activeTab === 'products' && <Products onDataChange={triggerRefresh} />}
           {activeTab === 'employees' && <Employees onDataChange={triggerRefresh} />}
           {activeTab === 'finance' && <Finance onDataChange={triggerRefresh} />}
-          {activeTab === 'settings' && <Settings theme={theme} setTheme={setTheme} />}
+          {activeTab === 'settings' && user?.username === 'admin' && <Settings user={user} />}
         </div>
       </div>
     </div>

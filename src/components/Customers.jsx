@@ -553,22 +553,6 @@ export default function Customers({ onDataChange }) {
           </div>
         </div>
       )}
-
-      {/* 엑셀 일괄 다운로드 버튼 (페이지 하단에 소형으로 배치) */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-        <button 
-          className="btn btn-secondary" 
-          onClick={handleExcelDownload}
-          style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--text-muted)' }}
-        >
-          📊 전체 회원 엑셀 다운로드
-        </button>
-      </div>
-
-
-
-
-      {/* 고객 기본정보 수정 모달 */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '400px' }}>
