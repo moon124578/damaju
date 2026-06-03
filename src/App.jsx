@@ -24,7 +24,9 @@ export default function App() {
     }
     return null;
   });
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('app_active_tab') || 'dashboard';
+  });
   const [refreshKey, setRefreshKey] = useState(0);
 
   // 모바일 및 사이드바 제어 상태
@@ -38,6 +40,11 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('app_theme', theme);
   }, [theme]);
+
+  // activeTab 변경 시 localStorage에 저장
+  useEffect(() => {
+    localStorage.setItem('app_active_tab', activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -55,12 +62,14 @@ export default function App() {
     setUser(userData);
     localStorage.setItem('logged_in_user', JSON.stringify(userData));
     setActiveTab('dashboard');
+    localStorage.setItem('app_active_tab', 'dashboard');
   };
 
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('logged_in_user');
     setActiveTab('dashboard');
+    localStorage.removeItem('app_active_tab');
   };
 
   const triggerRefresh = () => {
