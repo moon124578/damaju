@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주문 및 고객 정산 관리 시스템</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- html2canvas CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans KR', 'sans-serif'],
+          },
+          colors: {
+            slate: {
+              950: '#0b0f19',
+              900: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+            },
+            mint: {
+              400: '#34d399',
+              500: '#10b981',
+              DEFAULT: '#00f5d4',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 스크롤바 커스텀 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00f5d4;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex overflow-hidden font-sans">
+
+  <!-- 1. 사이드바 내비게이션 -->
+  <aside class="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between p-6">
+    <div>
+      <div class="text-mint font-bold text-xl tracking-wider text-center py-4 mb-8 border-b border-slate-800">
+        DAMAJU ADMIN
+      </div>
+      <nav class="flex flex-col gap-2">
+        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition">
+          <span>📊</span> 대시보드
+        </a>
+        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-800 text-mint font-semibold transition border-l-4 border-mint">
+          <span>🛒</span> 주문 & 정산 관리
+        </a>
+        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition">
+          <span>👤</span> 고객 관리
+        </a>
+        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition">
+          <span>📈</span> 매출 통계
+        </a>
+      </nav>
+    </div>
+    
+    <div class="border-t border-slate-800 pt-4 text-center">
+      <div class="text-xs text-slate-400 mb-2">접속자: admin (최고관리자)</div>
+      <button class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded transition">
+        로그아웃
+      </button>
+    </div>
+  </aside>
+
+  <!-- 2. 메인 컨텐츠 영역 -->
+  <main class="flex-1 flex flex-col p-8 overflow-y-auto">
+    <!-- 헤더 -->
+    <header class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">주문 및 고객 정산 관리</h1>
+        <p class="text-xs text-slate-400 mt-1">실시간 주문 현황 확인 및 카카오톡 전송용 이미지 정산서를 발행합니다.</p>
+      </div>
+      
+      <!-- 실시간 합계 지표 -->
+      <div class="flex gap-4">
+        <div class="bg-slate-800 border border-slate-700 px-6 py-3 rounded-xl flex flex-col gap-1">
+          <span class="text-xs text-slate-400">총 주문 건수 (완료)</span>
+          <span id="stat-completed-count" class="text-xl font-bold text-mint-400">0 건</span>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 px-6 py-3 rounded-xl flex flex-col gap-1">
+          <span class="text-xs text-slate-400">총 정산 금액</span>
+          <span id="stat-total-sum" class="text-xl font-bold text-mint">₩ 0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 스플리터/그리드 구성 -->
+    <div class="flex-1 grid grid-cols-12 gap-8 items-start">
+      <!-- 2.1 좌측: 주문 테이블 목록 (8/12) -->
+      <section class="col-span-8 bg-slate-800/50 border border-slate-800 rounded-xl p-6 flex flex-col gap-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-semibold text-slate-200">주문 내역 목록</h2>
+          
+          <!-- 고객별 필터 (정산서 자동 매핑용) -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">정산 고객 선택:</span>
+            <select id="customer-filter" class="bg-slate-800 border border-slate-700 text-sm text-slate-200 px-3 py-1.5 rounded-lg outline-none focus:border-mint">
+              <option value="all">전체 주문 보기</option>
+              <option value="1">홍길동 (VIP)</option>
+              <option value="2">김철수 (Gold)</option>
+              <option value="3">이영희 (일반)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-xs text-slate-400 uppercase">
+                <th class="py-3 px-4">주문 ID</th>
+                <th class="py-3 px-4">고객명</th>
+                <th class="py-3 px-4">상품명</th>
+                <th class="py-3 px-4 text-center">수량</th>
+                <th class="py-3 px-4 text-right">총 금액</th>
+                <th class="py-3 px-4">주문일자</th>
+                <th class="py-3 px-4 text-center">상태</th>
+                <th class="py-3 px-4 text-center">관리</th>
+              </tr>
+            </thead>
+            <tbody id="order-table-body">
+              <!-- JS 동적 주입 -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 2.2 우측: 정산서 미리보기 및 복사 (4/12) -->
+      <section class="col-span-4 flex flex-col gap-4 sticky top-8">
+        <h2 class="text-lg font-semibold text-slate-200">정산서 미리보기</h2>
+        
+        <!-- 정산서 캡처 영역 (html2canvas 대상) -->
+        <div id="invoice-capture" class="bg-white text-slate-800 p-8 shadow-2xl rounded border border-slate-300 max-w-sm mx-auto font-mono text-xs leading-relaxed">
+          <div class="text-center mb-6">
+            <h3 class="text-lg font-extrabold tracking-wider text-slate-900">DAMAJU STORE</h3>
+            <p class="text-[9px] text-slate-500 mt-1">매장 및 상품 통합 정산서</p>
+          </div>
+
+          <div class="flex flex-col gap-1 text-[11px] mb-4 text-slate-600">
+            <div class="flex justify-between">
+              <span>발행일자:</span>
+              <span id="invoice-date">2026-06-03</span>
+            </div>
+            <div class="flex justify-between font-bold text-slate-800">
+              <span>수신고객:</span>
+              <span id="invoice-customer">홍길동 귀하</span>
+            </div>
+          </div>
+
+          <!-- 절취선 1 -->
+          <div class="border-t border-dashed border-slate-400 my-3"></div>
+
+          <!-- 주문 내역 리스트 -->
+          <table class="w-full text-left text-[11px] mb-4">
+            <thead>
+              <tr class="font-bold text-slate-700 border-b border-slate-200">
+                <th class="pb-1">상품명</th>
+                <th class="pb-1 text-center">수량</th>
+                <th class="pb-1 text-right">금액</th>
+              </tr>
+            </thead>
+            <tbody id="invoice-items">
+              <!-- JS 동적 주입 -->
+            </tbody>
+          </table>
+
+          <!-- 절취선 2 -->
+          <div class="border-t border-dashed border-slate-400 my-3"></div>
+
+          <!-- 최종 합계 -->
+          <div class="flex justify-between items-center text-slate-900 font-extrabold text-sm py-2">
+            <span>최종 합계 금액</span>
+            <span id="invoice-total" class="text-base text-emerald-600">₩ 0</span>
+          </div>
+
+          <!-- 절취선 3 -->
+          <div class="border-t border-dashed border-slate-400 my-3"></div>
+
+          <!-- 바코드 디자인 (Tailwind 디테일링) -->
+          <div class="flex flex-col items-center gap-1.5 mt-4">
+            <div class="flex items-center justify-center gap-[1px] h-10 w-full bg-white">
+              <div class="w-[2px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[3px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[2px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[4px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[2px] h-full bg-black"></div>
+              <div class="w-[3px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[2px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[3px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[2px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[4px] h-full bg-black"></div>
+              <div class="w-[1px] h-full bg-black"></div>
+              <div class="w-[2px] h-full bg-black"></div>
+            </div>
+            <span class="text-[9px] text-slate-500 font-mono tracking-widest">DAMAJU-20260603-001</span>
+          </div>
+
+          <div class="text-center mt-6 text-[9px] text-slate-400 italic">
+            이용해 주셔서 감사합니다.
+          </div>
+        </div>
+
+        <!-- 이미지 클립보드 복사 버튼 -->
+        <button id="btn-copy-invoice" class="w-full bg-mint text-slate-950 font-bold py-3 rounded-lg hover:bg-emerald-400 transition shadow-lg flex items-center justify-center gap-2">
+          <span>📋</span> 정산서 이미지 복사 (카톡 전송용)
+        </button>
+      </section>
+    </div>
+  </main>
+
+  <!-- 3. 실시간 토스트 메시지 알림 -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 text-slate-100 border border-slate-700 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none z-50">
+    <span class="text-mint text-xl">✔</span>
+    <div>
+      <p class="text-sm font-bold">복사 완료!</p>
+      <p class="text-xs text-slate-400 mt-0.5">클립보드에 이미지가 저장되었습니다. 카톡창에 Ctrl+V로 붙여넣으세요.</p>
+    </div>
+  </div>
+
+  <!-- 4. 프론트엔드 비동기 및 복사 스크립트 -->
+  <script>
+    let allOrders = [];
+    const customerFilter = document.getElementById('customer-filter');
+    const orderTableBody = document.getElementById('order-table-body');
+    const invoiceItems = document.getElementById('invoice-items');
+    const invoiceCustomer = document.getElementById('invoice-customer');
+    const invoiceTotal = document.getElementById('invoice-total');
+    const invoiceDate = document.getElementById('invoice-date');
+    const btnCopyInvoice = document.getElementById('btn-copy-invoice');
+    const toast = document.getElementById('toast');
+
+    // 발행일자 오늘 날짜로 세팅
+    invoiceDate.textContent = new Date().toISOString().substring(0, 10);
+
+    // 페이지 로드 시 주문 목록 불러오기
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchOrders();
+    });
+
+    // 1. 주문 데이터 비동기 호출
+    async function fetchOrders() {
+      try {
+        const response = await fetch('/api/orders');
+        const data = await response.json();
+        allOrders = data.orders || [];
+        
+        renderOrders();
+        updateStats();
+        renderInvoice();
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+      }
+    }
+
+    // 2. 주문 테이블 렌더링 (취소 상태 분기)
+    function renderOrders() {
+      orderTableBody.innerHTML = '';
+      const filterValue = customerFilter.value;
+
+      // 필터링 적용
+      const filtered = filterValue === 'all' 
+        ? allOrders 
+        : allOrders.filter(o => o.customer_id.toString() === filterValue);
+
+      if (filtered.length === 0) {
+        orderTableBody.innerHTML = `
+          <tr>
+            <td colspan="8" class="py-8 text-center text-slate-500 text-sm">주문 내역이 없습니다.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(order => {
+        const tr = document.createElement('tr');
+        tr.className = `border-b border-slate-800 hover:bg-slate-800/30 transition text-sm ${
+          order.status === 'cancelled' ? 'text-gray-400 line-through opacity-60' : ''
+        }`;
+
+        // 취소된 주문에 따른 상태 버튼 조건문
+        const actionBtn = order.status === 'completed'
+          ? `<button onclick="cancelOrder(${order.id})" class="px-3 py-1 bg-red-950/60 text-red-400 border border-red-900 rounded-md hover:bg-red-900 hover:text-white transition text-xs font-semibold">주문 취소</button>`
+          : `<span class="text-xs text-slate-500">취소 완료</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono font-bold">${order.id}</td>
+          <td class="py-3 px-4 font-medium">${order.customer_name}</td>
+          <td class="py-3 px-4">${order.product_name}</td>
+          <td class="py-3 px-4 text-center">${order.quantity}</td>
+          <td class="py-3 px-4 text-right font-semibold">₩ ${order.total_price.toLocaleString()}</td>
+          <td class="py-3 px-4 text-xs text-slate-400">${order.created_at}</td>
+          <td class="py-3 px-4 text-center">
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
+              order.status === 'completed' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-900' : 'bg-slate-700/60 text-slate-400 border border-slate-600'
+            }">
+              ${order.status === 'completed' ? '완료' : '취소'}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-center">${actionBtn}</td>
+        `;
+        orderTableBody.appendChild(tr);
+      });
+    }
+
+    // 3. 통계 위젯 데이터 갱신 (취소 금액 즉시 배제)
+    function updateStats() {
+      // 완료된 주문만 필터링
+      const completed = allOrders.filter(o => o.status === 'completed');
+      const totalSum = completed.reduce((sum, o) => sum + o.total_price, 0);
+
+      document.getElementById('stat-completed-count').textContent = `${completed.length} 건`;
+      document.getElementById('stat-total-sum').textContent = `₩ ${totalSum.toLocaleString()}`;
+    }
+
+    // 4. 특정 주문 비동기 취소 요청
+    async function cancelOrder(orderId) {
+      if (!confirm('해당 주문을 취소 처리하시겠습니까?')) return;
+
+      try {
+        const response = await fetch(`/api/orders/${orderId}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+          // 로컬 데이터 갱신 후 리렌더링
+          allOrders = allOrders.map(o => o.id === orderId ? { ...o, status: 'cancelled' } : o);
+          renderOrders();
+          updateStats();
+          renderInvoice();
+        } else {
+          alert('주문 취소에 실패했습니다.');
+        }
+      } catch (err) {
+        console.error('Error cancelling order:', err);
+        alert('주문 취소 요청 중 서버 통신 에러가 발생했습니다.');
+      }
+    }
+
+    // 5. 우측 정산서 렌더링
+    function renderInvoice() {
+      invoiceItems.innerHTML = '';
+      const filterValue = customerFilter.value;
+
+      // 특정 고객이 선택된 경우에 해당 고객의 완료된 주문만 표시
+      // 전체 보기의 경우에는 임의로 첫 번째 주문한 고객(홍길동)의 정산서를 띄우거나, 가이드 제공
+      let targetCustomerId = filterValue;
+      if (filterValue === 'all') {
+        targetCustomerId = '1'; // 기본값으로 홍길동(1번) 설정
+      }
+
+      // 수신고객 매핑
+      const customerMap = { '1': '홍길동 VIP', '2': '김철수 Gold', '3': '이영희 일반' };
+      invoiceCustomer.textContent = `${customerMap[targetCustomerId] || '고객'} 귀하`;
+
+      // 해당 고객의 완료(completed)된 주문만 필터링
+      const customerOrders = allOrders.filter(o => o.customer_id.toString() === targetCustomerId && o.status === 'completed');
+
+      if (customerOrders.length === 0) {
+        invoiceItems.innerHTML = `
+          <tr>
+            <td colspan="3" class="py-6 text-center text-slate-400">완료된 주문이 없습니다.</td>
+          </tr>
+        `;
+        invoiceTotal.textContent = '₩ 0';
+        return;
+      }
+
+      let totalSum = 0;
+      customerOrders.forEach(order => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="py-2 text-slate-800">${order.product_name}</td>
+          <td class="py-2 text-center text-slate-600">${order.quantity}</td>
+          <td class="py-2 text-right text-slate-900">₩ ${order.total_price.toLocaleString()}</td>
+        `;
+        invoiceItems.appendChild(tr);
+        totalSum += order.total_price;
+      });
+
+      invoiceTotal.textContent = `₩ ${totalSum.toLocaleString()}`;
+    }
+
+    // 필터 체인지 이벤트 바인딩
+    customerFilter.addEventListener('change', () => {
+      renderOrders();
+      renderInvoice();
+    });
+
+    // 6. html2canvas & Clipboard API 이미지 클립보드 복사
+    btnCopyInvoice.addEventListener('click', () => {
+      const invoiceElement = document.getElementById('invoice-capture');
+
+      // html2canvas로 영수증 영역 캡처
+      html2canvas(invoiceElement, {
+        scale: 2, // 해상도 향상을 위한 확대 비율
+        backgroundColor: '#ffffff', // 영수증의 배경색은 흰색 고정
+        useCORS: true
+      }).then(canvas => {
+        // Blob 데이터로 변환
+        canvas.toBlob(blob => {
+          if (!blob) {
+            alert('영수증 이미지를 캡처하지 못했습니다.');
+            return;
+          }
+          
+          // 클립보드 API를 사용해 이미지 복사
+          navigator.clipboard.write([
+            new ClipboardItem({
+              'image/png': blob
+            })
+          ]).then(() => {
+            showToast();
+          }).catch(err => {
+            console.error('클립보드 저장 실패:', err);
+            // https 환경이 아니거나 브라우저 권한 미승인 시 Fallback 처리
+            alert('클립보드 이미지 복사를 실패했습니다. 로컬호스트(localhost) 또는 HTTPS 환경인지 확인해주세요.');
+          });
+        }, 'image/png');
+      });
+    });
+
+    // 토스트 팝업 띄우기
+    function showToast() {
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 4000);
+    }
+  </script>
+</body>
+</html>

@@ -10,9 +10,7 @@ export default function Products({ onDataChange }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [formData, setFormData] = useState({
-    code: '',
     name: '',
-    category: '전자기기',
     purchase_price: 0,
     selling_price: 0,
     stock_qty: 0,
@@ -37,10 +35,10 @@ export default function Products({ onDataChange }) {
       let query = supabase.from('products').select('*');
 
       if (searchVal.trim()) {
-        query = query.or(`name.ilike.%${searchVal}%,category.ilike.%${searchVal}%,code.ilike.%${searchVal}%`);
+        query = query.ilike('name', `%${searchVal}%`);
       }
 
-      const { data, error } = await query.order('code', { ascending: true });
+      const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;
       setProducts(data || []);
     } catch (err) {
@@ -58,9 +56,7 @@ export default function Products({ onDataChange }) {
   const openAddModal = () => {
     setSelectedProduct(null);
     setFormData({
-      code: '',
       name: '',
-      category: '전자기기',
       purchase_price: 0,
       selling_price: 0,
       stock_qty: 0,
@@ -71,9 +67,7 @@ export default function Products({ onDataChange }) {
   const openEditModal = (prod) => {
     setSelectedProduct(prod);
     setFormData({
-      code: prod.code,
       name: prod.name,
-      category: prod.category || '전자기기',
       purchase_price: prod.purchase_price,
       selling_price: prod.selling_price,
       stock_qty: prod.stock_qty,
@@ -103,8 +97,8 @@ export default function Products({ onDataChange }) {
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.code.trim() || !formData.name.trim()) {
-      alert('상품코드와 상품명은 필수 항목입니다.');
+    if (!formData.name.trim()) {
+      alert('상품명은 필수 항목입니다.');
       return;
     }
 
@@ -115,7 +109,6 @@ export default function Products({ onDataChange }) {
           .from('products')
           .update({
             name: formData.name.trim(),
-            category: formData.category,
             purchase_price: Number(formData.purchase_price),
             selling_price: Number(formData.selling_price),
             stock_qty: Number(formData.stock_qty),
@@ -123,23 +116,11 @@ export default function Products({ onDataChange }) {
           .eq('id', selectedProduct.id);
         if (error) throw error;
       } else {
-        // 신규 등록 (상품코드 중복 확인 선행)
-        const { data: existing } = await supabase
-          .from('products')
-          .select('id')
-          .eq('code', formData.code.trim())
-          .maybeSingle();
-
-        if (existing) {
-          alert('이미 존재하는 상품코드입니다.');
-          return;
-        }
-
+        // 신규 등록
         const { error } = await supabase.from('products').insert([
           {
-            code: formData.code.trim(),
             name: formData.name.trim(),
-            category: formData.category,
+            category: '의류',
             purchase_price: Number(formData.purchase_price),
             selling_price: Number(formData.selling_price),
             stock_qty: Number(formData.stock_qty),
@@ -256,7 +237,7 @@ export default function Products({ onDataChange }) {
         <input
           type="text"
           className="input-control"
-          placeholder="상품명, 카테고리 또는 상품코드 검색..."
+          placeholder="상품명 검색..."
           value={search}
           onChange={handleSearchChange}
         />
@@ -280,9 +261,7 @@ export default function Products({ onDataChange }) {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>상품코드</th>
                 <th>상품명</th>
-                <th>카테고리</th>
                 <th>매입가</th>
                 <th>판매가</th>
                 <th style={{ textAlign: 'right' }}>재고수량</th>
@@ -292,7 +271,7 @@ export default function Products({ onDataChange }) {
             <tbody>
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
                     등록된 상품이 없습니다.
                   </td>
                 </tr>
@@ -307,9 +286,7 @@ export default function Products({ onDataChange }) {
                       style={{ cursor: 'pointer' }}
                     >
                       <td>{prod.id}</td>
-                      <td>{prod.code}</td>
                       <td style={{ fontWeight: '600' }}>{prod.name}</td>
-                      <td>{prod.category}</td>
                       <td>₩ {prod.purchase_price.toLocaleString()}</td>
                       <td>₩ {prod.selling_price.toLocaleString()}</td>
                       <td style={{ textAlign: 'right', fontWeight: 'bold', color: isLow ? 'var(--color-danger)' : 'inherit' }}>
@@ -365,18 +342,6 @@ export default function Products({ onDataChange }) {
             <form onSubmit={handleProductSubmit}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>상품코드 *</label>
-                  <input
-                    type="text"
-                    className="input-control"
-                    placeholder="예: P001"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    disabled={!!selectedProduct}
-                    required
-                  />
-                </div>
-                <div className="form-group">
                   <label>상품명 *</label>
                   <input
                     type="text"
@@ -385,20 +350,6 @@ export default function Products({ onDataChange }) {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
-                </div>
-                <div className="form-group">
-                  <label>카테고리</label>
-                  <select
-                    className="input-control"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  >
-                    <option value="전자기기">전자기기</option>
-                    <option value="생활잡화">생활잡화</option>
-                    <option value="의류">의류</option>
-                    <option value="식료품">식료품</option>
-                    <option value="사무용품">사무용품</option>
-                  </select>
                 </div>
                 <div className="form-group">
                   <label>매입가 (원) *</label>

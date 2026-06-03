@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#004d67",
+                    "secondary-container": "#68fadd",
+                    "outline": "#6d7980",
+                    "surface-variant": "#dce2f3",
+                    "error": "#ba1a1a",
+                    "on-tertiary-fixed-variant": "#6a3c00",
+                    "on-secondary-fixed-variant": "#005145",
+                    "on-secondary-fixed": "#00201a",
+                    "on-tertiary-fixed": "#2d1600",
+                    "surface-container-highest": "#dce2f3",
+                    "on-error-container": "#93000a",
+                    "surface-dim": "#d3daea",
+                    "primary-container": "#00c2ff",
+                    "on-secondary-container": "#007261",
+                    "primary": "#006688",
+                    "tertiary-fixed": "#ffdcbe",
+                    "surface-container-high": "#e2e8f8",
+                    "secondary": "#006b5c",
+                    "error-container": "#ffdad6",
+                    "primary-fixed-dim": "#75d1ff",
+                    "surface-tint": "#006688",
+                    "secondary-fixed": "#68fadd",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f0f3ff",
+                    "surface-container": "#e7eefe",
+                    "tertiary-fixed-dim": "#ffb871",
+                    "on-primary-fixed": "#001e2b",
+                    "on-primary-container": "#004c66",
+                    "secondary-fixed-dim": "#44ddc1",
+                    "background": "#f9f9ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#3d484f",
+                    "surface-bright": "#f9f9ff",
+                    "inverse-surface": "#2a313d",
+                    "on-tertiary-container": "#693b00",
+                    "inverse-on-surface": "#ebf1ff",
+                    "tertiary": "#8b5000",
+                    "on-secondary": "#ffffff",
+                    "outline-variant": "#bcc8d1",
+                    "primary-fixed": "#c2e8ff",
+                    "inverse-primary": "#75d1ff",
+                    "on-surface": "#151c27",
+                    "on-error": "#ffffff",
+                    "on-background": "#151c27",
+                    "on-tertiary": "#ffffff",
+                    "surface": "#f9f9ff",
+                    "tertiary-container": "#ff9e2a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-lg": "24px",
+                    "sidebar-width": "240px",
+                    "stack-md": "16px",
+                    "container-padding": "32px",
+                    "stack-sm": "8px",
+                    "stack-xs": "4px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "button": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-sm": ["Hanken Grotesk"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "label-mono": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-mono": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #bcc8d1; border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-[240px] bg-surface-container-lowest border-r border-outline-variant flex flex-col py-stack-lg gap-stack-md z-50">
+<div class="px-container-padding mb-stack-lg">
+<h1 class="font-display-lg text-display-lg font-bold text-primary">LiveCommerce</h1>
+<p class="font-body-md text-body-md text-on-surface-variant opacity-70">Admin Dashboard</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-stack-md px-container-padding py-3 text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">대시보드</span>
+</a>
+<a class="flex items-center gap-stack-md px-container-padding py-3 text-primary font-bold hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+<span class="font-body-md text-body-md">주문 등록</span>
+</a>
+<a class="flex items-center gap-stack-md px-container-padding py-3 text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body-md text-body-md">고객 통합 CRM</span>
+</a>
+<a class="flex items-center gap-stack-md px-container-padding py-3 text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-body-md text-body-md">정산서 발행</span>
+</a>
+<a class="flex items-center gap-stack-md px-container-padding py-3 text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md text-body-md">직원 정산</span>
+</a>
+</nav>
+<div class="mt-auto px-container-padding">
+<div class="flex items-center gap-stack-sm p-2 rounded-lg bg-surface-container">
+<img alt="User Profile" class="w-8 h-8 rounded-full bg-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-BEw5hMBnPELqz6ZmIj5K5nlEVadVzpDTwgl79LYGe4pCoYp02wSdonl6CiKywHhHI3GJ6fO89U6G2yI_WWjMarkLycZMZc6Fkpkd3RZLPsgxVw0_isjoTP_tdgko7TMiQIhRF--DCi8NCcbs3QLRk65hwGoEYr69x-6kZF-q-85s8W4HwssiZAz-va-p4ce6GxKyhS6FR9htd0DcAXV_8PqAF4VoVSeOZk0bneYxKhbocYCYhRFwv0mp4aPJjVog4e5MdlmG1fL1"/>
+<div class="overflow-hidden">
+<p class="text-label-mono font-label-mono truncate">Admin_1</p>
+<p class="text-[10px] opacity-60">Super User</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar (Shared Component) -->
+<header class="fixed top-0 right-0 w-[calc(100%-240px)] h-16 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-stack-md">
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">LiveCommerce CRM</h2>
+<div class="relative ml-8">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline scale-90">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-body-md focus:outline-none focus:border-primary w-64 transition-all" placeholder="통합 검색..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="px-4 py-2 border border-outline-variant rounded-full text-button font-button hover:bg-surface-container-low transition-all scale-95 active:scale-90 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                엑셀 일괄 다운로드
+            </button>
+<div class="w-8 h-8 rounded-full bg-secondary-container overflow-hidden">
+<img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAXW46vHcFcW-kIdA0_n5HyW7QYMu35zEu3yuAd2pfmiGMJWDFWvCLhrcpkYhNwK8R24r9YMepklTQY2XL4gWAW67JRGb7k4L6nzaqX8pGvW9cqHGoQDwbtq-SBFRx-G2zwwP_QfpIZdfosyCuiy34Qbkpp9ScBcf8ZB_B3k2k0ddpNWvIO5tb_XJuYavw5TwrVCHf_18vJ81DPEaH8J5CtZfNxq30tv4R5bg5nPWG8l9ocO8ihUajWJw-u9U7KU3Pnlt_eYlZvH9d"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[240px] pt-16 min-h-screen">
+<div class="p-container-padding max-w-[1400px] mx-auto">
+<!-- Page Header -->
+<div class="mb-stack-lg flex justify-between items-end">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">주문 등록</h3>
+<p class="text-on-surface-variant font-body-md">실시간 주문 데이터를 수기 또는 자동 제안으로 신속하게 입력합니다.</p>
+</div>
+<div class="flex gap-stack-sm">
+<span class="flex items-center gap-1 text-label-mono font-label-mono px-3 py-1 bg-surface-container rounded-full text-primary">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                        LIVE STATUS: ACTIVE
+                    </span>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Rapid Entry Workspace (Left 8 columns) -->
+<div class="col-span-12 lg:col-span-8 space-y-gutter">
+<section class="bg-surface-container-lowest border border-outline-variant rounded-lg p-stack-lg">
+<h4 class="font-label-mono text-label-mono text-outline uppercase mb-stack-md tracking-wider">Manual Order Entry</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-lg mb-stack-lg">
+<!-- Customer Nickname -->
+<div class="relative group">
+<label class="block font-label-mono text-[11px] text-outline-variant mb-1 ml-1">고객 닉네임 입력</label>
+<input autocomplete="off" class="w-full px-4 py-3 border border-outline-variant focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-lg text-body-lg bg-surface-container-lowest transition-all" id="nicknameInput" placeholder="예: 바리" type="text"/>
+<!-- Auto-complete Dropdown (Mock) -->
+<div class="absolute left-0 top-full w-full mt-1 bg-surface-container-lowest border border-outline-variant shadow-lg rounded-lg z-20 hidden" id="nicknameDropdown">
+<div class="p-2 border-b border-outline-variant bg-surface-container-low text-[10px] font-label-mono text-outline">최근 검색 고객</div>
+<button class="w-full text-left px-4 py-3 hover:bg-primary-container/10 flex justify-between items-center transition-colors">
+<span class="font-body-md">바리스타(4321)</span>
+<span class="text-label-mono text-outline">CRM #821</span>
+</button>
+<button class="w-full text-left px-4 py-3 hover:bg-primary-container/10 flex justify-between items-center transition-colors border-t border-outline-variant">
+<span class="font-body-md">바람풍(9988)</span>
+<span class="text-label-mono text-outline">CRM #455</span>
+</button>
+</div>
+</div>
+<!-- Product Selection -->
+<div class="relative">
+<label class="block font-label-mono text-[11px] text-outline-variant mb-1 ml-1">물품명 입력</label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<input class="w-full px-4 py-3 border border-outline-variant focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-lg text-body-lg bg-surface-container-lowest transition-all" placeholder="예: 프리미엄" type="text"/>
+</div>
+<div class="w-24">
+<input class="w-full px-4 py-3 border border-outline-variant focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-lg text-body-lg bg-surface-container-lowest transition-all text-center" placeholder="갯수" type="number" value="1"/>
+</div>
+</div>
+</div>
+</div>
+<div class="flex justify-end pt-4 border-t border-outline-variant">
+<button class="bg-secondary-container hover:bg-secondary transition-all text-on-secondary-container hover:text-on-secondary font-button text-button px-stack-lg py-3 rounded-full flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined">check_circle</span>
+                                주문 접수
+                            </button>
+</div>
+</section>
+<!-- Recent Entry Log -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden">
+<div class="px-stack-lg py-4 border-b border-outline-variant flex justify-between items-center">
+<h4 class="font-label-mono text-label-mono text-outline uppercase tracking-wider">Recent Entry Log</h4>
+<span class="text-[11px] text-outline">Today: 142 Orders</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-stack-lg py-3 font-label-mono text-label-mono text-outline uppercase">시간</th>
+<th class="px-stack-lg py-3 font-label-mono text-label-mono text-outline uppercase">고객명</th>
+<th class="px-stack-lg py-3 font-label-mono text-label-mono text-outline uppercase">상품</th>
+<th class="px-stack-lg py-3 font-label-mono text-label-mono text-outline uppercase text-center">수량</th>
+<th class="px-stack-lg py-3 font-label-mono text-label-mono text-outline uppercase">상태</th>
+<th class="px-stack-lg py-3 font-label-mono text-label-mono text-outline uppercase text-right">금액</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-stack-lg py-4 font-label-mono text-label-mono text-outline">14:22:10</td>
+<td class="px-stack-lg py-4 font-body-md font-bold">바리스타(4321)</td>
+<td class="px-stack-lg py-4 font-body-md text-on-surface-variant">프리미엄 린넨 셔츠 (블루)</td>
+<td class="px-stack-lg py-4 font-label-mono text-center">2</td>
+<td class="px-stack-lg py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-outline-variant bg-surface-container-low text-[11px] font-medium text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                                                배송 전
+                                            </span>
+</td>
+<td class="px-stack-lg py-4 text-right font-label-mono">₩89,000</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-stack-lg py-4 font-label-mono text-outline">14:21:45</td>
+<td class="px-stack-lg py-4 font-body-md font-bold">바람풍(9988)</td>
+<td class="px-stack-lg py-4 font-body-md text-on-surface-variant">울트라 슬림 슬랙스</td>
+<td class="px-stack-lg py-4 font-label-mono text-center">1</td>
+<td class="px-stack-lg py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-outline-variant bg-surface-container-low text-[11px] font-medium text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                                                배송 전
+                                            </span>
+</td>
+<td class="px-stack-lg py-4 text-right font-label-mono">₩45,000</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-stack-lg py-4 font-label-mono text-outline">14:18:02</td>
+<td class="px-stack-lg py-4 font-body-md font-bold">킹갓더(1122)</td>
+<td class="px-stack-lg py-4 font-body-md text-on-surface-variant">이지 벨트 세트</td>
+<td class="px-stack-lg py-4 font-label-mono text-center">1</td>
+<td class="px-stack-lg py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-outline-variant bg-surface-container-low text-[11px] font-medium text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                                                배송 전
+                                            </span>
+</td>
+<td class="px-stack-lg py-4 text-right font-label-mono">₩12,000</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-stack-lg py-4 font-label-mono text-outline">14:15:33</td>
+<td class="px-stack-lg py-4 font-body-md font-bold">블루베리(3434)</td>
+<td class="px-stack-lg py-4 font-body-md text-on-surface-variant">코튼 라운드 티셔츠 (화이트)</td>
+<td class="px-stack-lg py-4 font-label-mono text-center">3</td>
+<td class="px-stack-lg py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-outline-variant bg-surface-container-low text-[11px] font-medium text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                                                배송 전
+                                            </span>
+</td>
+<td class="px-stack-lg py-4 text-right font-label-mono">₩57,000</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 bg-surface-container-lowest flex justify-center">
+<button class="text-primary font-button text-button hover:underline">View All Entry Log</button>
+</div>
+</section>
+</div>
+<!-- Live Dashboard Stats (Right 4 columns) -->
+<div class="col-span-12 lg:col-span-4 space-y-gutter">
+<div class="bg-primary text-on-primary rounded-lg p-stack-lg shadow-lg relative overflow-hidden">
+<!-- Decorative mesh gradient via CSS -->
+<div class="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_top_right,white,transparent_70%)]"></div>
+<p class="font-label-mono text-label-mono opacity-80 uppercase mb-2">Live Session Sales</p>
+<h5 class="font-display-lg text-display-lg">₩4,285,000</h5>
+<div class="mt-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">trending_up</span>
+<span class="text-button">+12.5% from last session</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-stack-lg">
+<h4 class="font-label-mono text-label-mono text-outline uppercase mb-stack-md">Quick Analytics</h4>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-body-md text-on-surface-variant">Pending Settlements</span>
+<span class="font-label-mono font-bold text-tertiary">28 Units</span>
+</div>
+<div class="w-full bg-surface-container-low h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary w-[65%] h-full"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-md text-on-surface-variant">Packing Progress</span>
+<span class="font-label-mono font-bold text-primary">12/45</span>
+</div>
+<div class="w-full bg-surface-container-low h-1 rounded-full overflow-hidden">
+<div class="bg-primary w-[25%] h-full"></div>
+</div>
+</div>
+</div>
+<!-- Contextual Support Info -->
+<div class="bg-surface-container-low rounded-lg p-stack-lg border border-outline-variant border-dashed">
+<h4 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+                            Tip
+                        </h4>
+<p class="text-body-md text-on-surface-variant leading-relaxed">
+                            닉네임 입력란에서 첫 글자만 입력하면 CRM에 등록된 고객 리스트가 자동으로 노출됩니다. 엔터 키를 눌러 신속하게 선택할 수 있습니다.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interactions for inputs
+        const nicknameInput = document.getElementById('nicknameInput');
+        const nicknameDropdown = document.getElementById('nicknameDropdown');
+
+        nicknameInput.addEventListener('focus', () => {
+            nicknameDropdown.classList.remove('hidden');
+        });
+
+        nicknameInput.addEventListener('blur', () => {
+            // Delay to allow clicking on dropdown items
+            setTimeout(() => {
+                nicknameDropdown.classList.add('hidden');
+            }, 200);
+        });
+
+        // Simple autocomplete logic mock
+        nicknameInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (val.length > 0) {
+                nicknameDropdown.classList.remove('hidden');
+            } else {
+                nicknameDropdown.classList.add('hidden');
+            }
+        });
+    </script>
+</body></html>

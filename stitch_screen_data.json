@@ -1,0 +1,28 @@
+﻿{
+    "id":  3,
+    "jsonrpc":  "2.0",
+    "result":  {
+                   "content":  [
+                                   {
+                                       "text":  "{\"name\":\"projects/17464722690403980786/screens/9008dcd010da4988baedcaaf6a0a0c4e\",\"title\":\"대시보드\",\"screenshot\":{\"name\":\"projects/17464722690403980786/files/4433a7064a09434dbeebfb9bfdc26f7f\",\"downloadUrl\":\"https://lh3.googleusercontent.com/aida/AP1WRLvPur_fKohhPYNgjkKJNNoL-XTxlSAKPRvPDqFBfNgVqIkQtIAT048_7U04iNGCmbmJlNHA0Ab68jvtDCZ5ALsj6lJ5vfWoaP2G3CxHOWcgcxp73Uo_OWYQESMlw0wbDYOQp6HVEIBzq9yl5nuRT5FVp5qTWumWw9rEE__sSRuHA3nxZozhfBYvt4767CEPb-xqv2nbR1pDVyIBT1Nh55P0TODLh2XflRv-G4A9Q-PlGNfdj_0LSSv8XOBx\"},\"htmlCode\":{\"name\":\"projects/17464722690403980786/files/b615505a97474cc68319531917f0eefc\",\"downloadUrl\":\"https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ8Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpbCiVodG1sX2I0YTI1YzVhNGNjMTQxMmE4MzEyNjJiOGJiY2E5YjUyEgsSBxCXlerokBwYAZIBJAoKcHJvamVjdF9pZBIWQhQxNzQ2NDcyMjY5MDQwMzk4MDc4Ng\u0026filename=\u0026opi=89354086\",\"mimeType\":\"text/html\"},\"width\":\"2560\",\"height\":\"2048\",\"deviceType\":\"DESKTOP\"}",
+                                       "type":  "text"
+                                   }
+                               ],
+                   "structuredContent":  {
+                                             "deviceType":  "DESKTOP",
+                                             "height":  "2048",
+                                             "htmlCode":  {
+                                                              "downloadUrl":  "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ8Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpbCiVodG1sX2I0YTI1YzVhNGNjMTQxMmE4MzEyNjJiOGJiY2E5YjUyEgsSBxCXlerokBwYAZIBJAoKcHJvamVjdF9pZBIWQhQxNzQ2NDcyMjY5MDQwMzk4MDc4Ng\u0026filename=\u0026opi=89354086",
+                                                              "mimeType":  "text/html",
+                                                              "name":  "projects/17464722690403980786/files/b615505a97474cc68319531917f0eefc"
+                                                          },
+                                             "name":  "projects/17464722690403980786/screens/9008dcd010da4988baedcaaf6a0a0c4e",
+                                             "screenshot":  {
+                                                                "downloadUrl":  "https://lh3.googleusercontent.com/aida/AP1WRLvPur_fKohhPYNgjkKJNNoL-XTxlSAKPRvPDqFBfNgVqIkQtIAT048_7U04iNGCmbmJlNHA0Ab68jvtDCZ5ALsj6lJ5vfWoaP2G3CxHOWcgcxp73Uo_OWYQESMlw0wbDYOQp6HVEIBzq9yl5nuRT5FVp5qTWumWw9rEE__sSRuHA3nxZozhfBYvt4767CEPb-xqv2nbR1pDVyIBT1Nh55P0TODLh2XflRv-G4A9Q-PlGNfdj_0LSSv8XOBx",
+                                                                "name":  "projects/17464722690403980786/files/4433a7064a09434dbeebfb9bfdc26f7f"
+                                                            },
+                                             "title":  "대시보드",
+                                             "width":  "2560"
+                                         }
+               }
+}

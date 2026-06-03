@@ -1,22 +1,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
 
 :root {
-  --bg-main: #121214;
-  --bg-card: rgba(30, 30, 36, 0.7);
-  --bg-sidebar: #0f0f11;
-  --border-color: rgba(45, 45, 52, 0.6);
-  --color-mint: #00f5d4;
-  --color-mint-hover: #3db5a7;
-  --color-blue: #00b4d8;
-  --color-blue-hover: #0096b4;
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --border-color: #e2e8f0;
+  --color-mint: #0ea5e9; /* Sky blue/teal accent like ClouDoc */
+  --color-mint-hover: #0284c7;
+  --color-blue: #3b82f6;
+  --color-blue-hover: #2563eb;
   --color-danger: #ef4444;
-  --color-danger-bg: rgba(239, 68, 68, 0.15);
-  --text-primary: #f3f4f6;
-  --text-muted: #9ca3af;
+  --color-danger-bg: #fef2f2;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
   --font-main: 'Inter', 'Malgun Gothic', sans-serif;
   --font-title: 'Outfit', 'Malgun Gothic', sans-serif;
-  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
 }
 
 * {

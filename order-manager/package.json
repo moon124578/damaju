@@ -1,0 +1,14 @@
+{
+  "name": "order-manager",
+  "version": "1.0.0",
+  "description": "Order and customer settlement management system",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "sqlite3": "^5.1.7"
+  }
+}

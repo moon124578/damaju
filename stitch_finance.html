@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .receipt-paper {
+            background-image: 
+                radial-gradient(circle at 2px 2px, rgba(0,0,0,0.05) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        .zigzag-bottom {
+            mask-image: linear-gradient(-45deg, transparent 8px, black 8px), linear-gradient(45deg, transparent 8px, black 8px);
+            mask-size: 16px 100%;
+            mask-repeat: repeat-x;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#004d67",
+                    "secondary-container": "#68fadd",
+                    "outline": "#6d7980",
+                    "surface-variant": "#dce2f3",
+                    "error": "#ba1a1a",
+                    "on-tertiary-fixed-variant": "#6a3c00",
+                    "on-secondary-fixed-variant": "#005145",
+                    "on-secondary-fixed": "#00201a",
+                    "on-tertiary-fixed": "#2d1600",
+                    "surface-container-highest": "#dce2f3",
+                    "on-error-container": "#93000a",
+                    "surface-dim": "#d3daea",
+                    "primary-container": "#00c2ff",
+                    "on-secondary-container": "#007261",
+                    "primary": "#006688",
+                    "tertiary-fixed": "#ffdcbe",
+                    "surface-container-high": "#e2e8f8",
+                    "secondary": "#006b5c",
+                    "error-container": "#ffdad6",
+                    "primary-fixed-dim": "#75d1ff",
+                    "surface-tint": "#006688",
+                    "secondary-fixed": "#68fadd",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f0f3ff",
+                    "surface-container": "#e7eefe",
+                    "tertiary-fixed-dim": "#ffb871",
+                    "on-primary-fixed": "#001e2b",
+                    "on-primary-container": "#004c66",
+                    "secondary-fixed-dim": "#44ddc1",
+                    "background": "#f9f9ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#3d484f",
+                    "surface-bright": "#f9f9ff",
+                    "inverse-surface": "#2a313d",
+                    "on-tertiary-container": "#693b00",
+                    "inverse-on-surface": "#ebf1ff",
+                    "tertiary": "#8b5000",
+                    "on-secondary": "#ffffff",
+                    "outline-variant": "#bcc8d1",
+                    "primary-fixed": "#c2e8ff",
+                    "inverse-primary": "#75d1ff",
+                    "on-surface": "#151c27",
+                    "on-error": "#ffffff",
+                    "on-background": "#151c27",
+                    "on-tertiary": "#ffffff",
+                    "surface": "#f9f9ff",
+                    "tertiary": "#8b5000"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "stack-lg": "24px",
+                    "sidebar-width": "240px",
+                    "stack-md": "16px",
+                    "container-padding": "32px",
+                    "stack-sm": "8px",
+                    "stack-xs": "4px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "button": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-sm": ["Hanken Grotesk"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "label-mono": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-mono": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md overflow-hidden">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-[240px] bg-surface-container-lowest border-r border-outline-variant flex flex-col py-stack-lg gap-stack-md z-50">
+<div class="px-6 mb-8">
+<h1 class="font-display-lg text-display-lg font-bold text-primary">LiveCommerce</h1>
+<p class="text-on-surface-variant font-body-md">Admin Dashboard</p>
+</div>
+<nav class="flex-1 px-4 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md">대시보드</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+<span class="font-body-md">주문 등록</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body-md">고객 통합 CRM</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold bg-surface-container-low transition-colors transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-body-md">정산서 발행</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors transition-all active:opacity-80" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md">직원 정산</span>
+</a>
+</nav>
+<div class="px-6 py-4 mt-auto">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold">JD</div>
+<div>
+<p class="text-on-surface font-bold text-body-md">Jane Doe</p>
+<p class="text-on-surface-variant text-label-mono">Administrator</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-240px)] h-16 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-4 flex-1 max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-body-md focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary" placeholder="고객명 또는 닉네임 검색" type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-full text-on-surface hover:bg-surface-container-low transition-colors scale-95 active:transition-transform">
+<span class="material-symbols-outlined">download</span>
+<span class="font-button text-button">엑셀 일괄 다운로드</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant bg-surface-container-low">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a female administrator with a friendly smile, set against a clean, softly lit studio background. The lighting is bright and modern, emphasizing clarity and transparency. The overall color palette is composed of soft whites and cool grays, aligning with a high-end corporate dashboard aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALuVjtVhYED-wLBoMAIhIrA2QMMC68-4Wlo13U8Ceg_MZsUYG3A-IHHapwzkBvCi1gVX_jhhfv8JP8xPgmrNUloVH84m7aN9puU8pGLYNBhNC_jUOQTVjMCAUBxEEUCJQHYf_IaSNRROiaTV4wG50CHavXkDbo4Oy0Iok24xAxu5y932nkUaD9YWWuivXhxsMunmOp2VRlRC9sIQRBszVMJFOj0bWhw_VEFRgRSWK_YMcS_S4PFaLM7SG0G85Vu61v3QuD2mJI82s-"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-[240px] mt-16 p-container-padding h-[calc(100vh-64px)] overflow-y-auto">
+<div class="max-w-4xl mx-auto space-y-8">
+<header class="flex justify-between items-end">
+<div>
+<p class="text-primary font-label-mono uppercase tracking-wider mb-2">Billing &amp; Settlement</p>
+<h2 class="font-headline-md text-headline-md text-on-surface">정산서 발행</h2>
+</div>
+<div class="text-right">
+<p class="text-on-surface-variant text-label-mono">발행 일시</p>
+<p class="text-on-surface font-label-mono">2023.10.27 14:30</p>
+</div>
+</header>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter items-start">
+<!-- Sidebar / Customer Info -->
+<div class="md:col-span-4 space-y-6">
+<div class="bg-surface-container-lowest border border-outline-variant p-stack-lg rounded-xl">
+<h3 class="font-headline-sm text-headline-sm mb-4">고객 정보</h3>
+<div class="space-y-4">
+<div>
+<label class="text-label-mono text-on-surface-variant block mb-1">고객명 / 닉네임</label>
+<p class="text-body-lg font-bold">김지수 (JS_Live_01)</p>
+</div>
+<div>
+<label class="text-label-mono text-on-surface-variant block mb-1">연락처</label>
+<p class="text-body-md">010-1234-5678</p>
+</div>
+<div>
+<label class="text-label-mono text-on-surface-variant block mb-1">누적 구매 금액</label>
+<p class="text-body-md font-label-mono">₩ 1,240,000</p>
+</div>
+<div class="pt-4 border-t border-outline-variant">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container text-label-mono font-bold">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+                                    VVIP 고객
+                                </span>
+</div>
+</div>
+</div>
+<div class="p-4 bg-primary-container/10 border border-primary/20 rounded-xl">
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-primary">info</span>
+<p class="text-on-primary-container text-body-md leading-relaxed">
+                                현재 <span class="font-bold">배송 전</span> 상태의 품목만 집계되었습니다. 취소 또는 완료된 항목은 정산 대상에서 제외됩니다.
+                            </p>
+</div>
+</div>
+</div>
+<!-- Receipt Container -->
+<div class="md:col-span-8">
+<div class="receipt-paper bg-white shadow-lg p-stack-lg border-t-4 border-primary relative">
+<!-- Receipt Top Decor -->
+<div class="flex justify-between items-start mb-10">
+<div>
+<h4 class="text-on-surface font-display-lg text-display-lg leading-none mb-2">INVOICE</h4>
+<p class="text-label-mono text-on-surface-variant">NO. INV-20231027-042</p>
+</div>
+<div class="w-16 h-16 opacity-20">
+<span class="material-symbols-outlined text-[64px] text-primary">barcode</span>
+</div>
+</div>
+<!-- Table -->
+<table class="w-full mb-10 border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-y border-outline-variant">
+<th class="text-left py-3 px-4 text-label-mono text-on-surface-variant font-bold uppercase">Item Details</th>
+<th class="text-center py-3 px-4 text-label-mono text-on-surface-variant font-bold uppercase">Qty</th>
+<th class="text-right py-3 px-4 text-label-mono text-on-surface-variant font-bold uppercase">Price</th>
+<th class="text-right py-3 px-4 text-label-mono text-on-surface-variant font-bold uppercase">Total</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr>
+<td class="py-4 px-4">
+<p class="text-on-surface font-bold">캐시미어 블렌드 가디건 (네이비)</p>
+<p class="text-on-surface-variant text-label-mono">Size: M | Color: Navy</p>
+</td>
+<td class="py-4 px-4 text-center font-label-mono">1</td>
+<td class="py-4 px-4 text-right font-label-mono">₩ 89,000</td>
+<td class="py-4 px-4 text-right font-label-mono">₩ 89,000</td>
+</tr>
+<tr>
+<td class="py-4 px-4">
+<p class="text-on-surface font-bold">와이드 슬랙스 (챠콜)</p>
+<p class="text-on-surface-variant text-label-mono">Size: L | Color: Charcoal</p>
+</td>
+<td class="py-4 px-4 text-center font-label-mono">2</td>
+<td class="py-4 px-4 text-right font-label-mono">₩ 45,000</td>
+<td class="py-4 px-4 text-right font-label-mono">₩ 90,000</td>
+</tr>
+<tr>
+<td class="py-4 px-4">
+<p class="text-on-surface font-bold">오버사이즈 실크 셔츠</p>
+<p class="text-on-surface-variant text-label-mono">Size: Free | Color: Ivory</p>
+</td>
+<td class="py-4 px-4 text-center font-label-mono">1</td>
+<td class="py-4 px-4 text-right font-label-mono">₩ 62,000</td>
+<td class="py-4 px-4 text-right font-label-mono">₩ 62,000</td>
+</tr>
+</tbody>
+</table>
+<!-- Totals -->
+<div class="flex flex-col items-end gap-2 pr-4 mb-12">
+<div class="flex justify-between w-full max-w-xs text-on-surface-variant">
+<span class="font-body-md">Subtotal</span>
+<span class="font-label-mono">₩ 241,000</span>
+</div>
+<div class="flex justify-between w-full max-w-xs text-on-surface-variant">
+<span class="font-body-md">Shipping</span>
+<span class="font-label-mono">₩ 3,000</span>
+</div>
+<div class="flex justify-between w-full max-w-xs mt-4 pt-4 border-t-2 border-primary border-dashed text-primary">
+<span class="font-headline-sm">Grand Total</span>
+<span class="font-headline-sm font-label-mono">₩ 244,000</span>
+</div>
+</div>
+<!-- Footer Note -->
+<div class="text-center py-6 border-y border-outline-variant border-dashed">
+<p class="text-on-surface-variant text-body-md italic mb-1">"Thank you for your purchase!"</p>
+<p class="text-on-surface font-bold">LiveCommerce Official Store</p>
+</div>
+</div>
+<!-- Action Button -->
+<div class="mt-8">
+<button class="w-full bg-secondary-fixed text-on-secondary-fixed font-button text-button py-4 rounded-full flex items-center justify-center gap-3 transition-transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-secondary/20">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">image</span>
+                            정산서 이미지 다운로드
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interactions
+        document.querySelector('button').addEventListener('click', function() {
+            const btn = this;
+            btn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> 생성 중...';
+            setTimeout(() => {
+                btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span> 다운로드 완료';
+                setTimeout(() => {
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">image</span> 정산서 이미지 다운로드';
+                }, 2000);
+            }, 1500);
+        });
+    </script>
+</body></html>

@@ -1,277 +1,367 @@
 import React, { useState, useEffect } from 'react';
+import html2canvas from 'html2canvas';
 import { supabase } from '../supabase';
 
-export default function Finance() {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [ledger, setLedger] = useState([]);
-  const [summary, setSummary] = useState({
-    salesTotal: 0,
-    purchaseTotal: 0,
-    netProfit: 0,
-  });
-  const [loading, setLoading] = useState(false);
+export default function Finance({ onDataChange }) {
+  const [customers, setCustomers] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [showToast, setShowToast] = useState(false);
+
+  const BANK_INFO = '신한은행 110-456-789012 (예금주: 스마트주스토어)';
+  const todayStr = new Date().toISOString().substring(0, 10);
 
   useEffect(() => {
-    // 기본값: 이번 달 1일부터 오늘까지
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    
-    setStartDate(`${year}-${month}-01`);
-    setEndDate(`${year}-${month}-${day}`);
-    
-    fetchFinancialData(`${year}-${month}-01`, `${year}-${month}-${day}`);
+    fetchInitialData();
   }, []);
 
-  const fetchFinancialData = async (start = startDate, end = endDate) => {
-    if (!start || !end) {
-      alert('시작일과 종료일을 입력해주세요.');
-      return;
-    }
+  const fetchInitialData = async () => {
     setLoading(true);
-
     try {
-      // 1. 매출 내역 조회 (Sales)
-      const { data: sales, error: salesErr } = await supabase
-        .from('sales')
-        .select(`
-          sale_date,
-          quantity,
-          selling_price,
-          products (name)
-        `)
-        .between('sale_date', start, end);
+      const { data: custData, error: custErr } = await supabase
+        .from('customers')
+        .select('customer_id, nickname, name, phone, address')
+        .order('customer_id', { ascending: true });
+      if (custErr) throw custErr;
 
-      if (salesErr) throw salesErr;
+      const { data: ordData, error: ordErr } = await supabase
+        .from('orders')
+        .select(`order_id, customer_id, product_name, quantity, unit_price, total_price, order_date, order_status`)
+        .in('order_status', ['배송 전', '정산서 발행']);
+      if (ordErr) throw ordErr;
 
-      const salesList = (sales || []).map((s) => ({
-        date: s.sale_date,
-        type: '매출',
-        detail: `${s.products?.name || '삭제된 상품'} ${s.quantity}개 판매`,
-        amount: s.quantity * s.selling_price,
-      }));
-
-      // 2. 매입 내역 조회 (Purchases)
-      const { data: purchases, error: purErr } = await supabase
-        .from('purchases')
-        .select(`
-          purchase_date,
-          quantity,
-          purchase_price,
-          products (name)
-        `)
-        .between('purchase_date', start, end);
-
-      if (purErr) throw purErr;
-
-      const purchaseList = (purchases || []).map((p) => ({
-        date: p.purchase_date,
-        type: '매입',
-        detail: `${p.products?.name || '삭제된 상품'} ${p.quantity}개 입고`,
-        amount: -(p.quantity * p.purchase_price),
-      }));
-
-      // 3. 인건비 정산 내역 조회 (Payrolls)
-      const { data: payrolls, error: payErr } = await supabase
-        .from('payrolls')
-        .select(`
-          settlement_date,
-          settlement_month,
-          calculated_salary,
-          employees (name)
-        `)
-        .between('settlement_date', start, end);
-
-      if (payErr) throw payErr;
-
-      const payrollList = (payrolls || []).map((pa) => ({
-        date: pa.settlement_date,
-        type: '인건비',
-        detail: `${pa.employees?.name || '퇴사한 직원'} (${pa.settlement_month}) 급여 정산`,
-        amount: -pa.calculated_salary,
-      }));
-
-      // 4. 통합 원장(Ledger) 구성 및 날짜 역순 정렬
-      const unifiedLedger = [...salesList, ...purchaseList, ...payrollList];
-      unifiedLedger.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setLedger(unifiedLedger);
-
-      // 5. 합계 계산
-      let salesSum = 0;
-      let purchaseSum = 0; // 지출 (매입 + 급여)
-
-      unifiedLedger.forEach((item) => {
-        if (item.amount > 0) {
-          salesSum += item.amount;
-        } else {
-          purchaseSum += Math.abs(item.amount);
-        }
-      });
-
-      setSummary({
-        salesTotal: salesSum,
-        purchaseTotal: purchaseSum,
-        netProfit: salesSum - purchaseSum,
-      });
+      setCustomers(custData || []);
+      setOrders(ordData || []);
     } catch (err) {
       console.error(err);
-      alert('재무 데이터를 불러오는 중 오류가 발생했습니다.');
+      alert('데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearch = () => {
-    fetchFinancialData();
+  const handleCopyInvoice = () => {
+    const invoiceElement = document.getElementById('invoice-capture');
+    if (!invoiceElement) return;
+
+    html2canvas(invoiceElement, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+    }).then((canvas) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('영수증 이미지를 캡처하지 못했습니다.');
+          return;
+        }
+
+        navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ])
+          .then(() => {
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+          })
+          .catch((err) => {
+            console.error(err);
+            alert('클립보드 복사에 실패했습니다. 아래 다운로드 버튼을 사용해 주세요.');
+          });
+      }, 'image/png');
+    });
   };
 
-  // CSV 내보내기 기능 실제 구현
-  const handleExportCSV = () => {
-    if (ledger.length === 0) {
-      alert('내보낼 데이터가 없습니다.');
+  const handleDownloadInvoice = () => {
+    const invoiceElement = document.getElementById('invoice-capture');
+    if (!invoiceElement) return;
+
+    html2canvas(invoiceElement, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+    }).then((canvas) => {
+      const link = document.createElement('a');
+      link.download = `정산서_${currentInvoiceCustomer?.name || '고객'}_${todayStr}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+  };
+
+  const handleBulkCompleteFinance = async () => {
+    if (currentInvoiceOrders.length === 0) return;
+    if (!window.confirm(`${currentInvoiceCustomer?.name || '고객'}님의 주문 건 전체를 배송 완료로 변경하시겠습니까?`)) return;
+    setLoading(true);
+    try {
+      const orderIds = currentInvoiceOrders.map(o => o.order_id);
+      const { error } = await supabase
+        .from('orders')
+        .update({ order_status: '배송 완료' })
+        .in('order_id', orderIds);
+      if (error) throw error;
+      setSelectedCustomerId(null);
+      await fetchInitialData();
+      if (onDataChange) onDataChange();
+      alert('배송 완료 처리되었습니다.');
+    } catch (err) {
+      console.error('Error complete orders:', err);
+      alert('배송 완료 처리 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkIssueReceipt = async () => {
+    const pendingOrders = currentInvoiceOrders.filter(o => o.order_status === '배송 전');
+    if (pendingOrders.length === 0) {
+      alert('정산서로 발행할 배송 전 주문 건이 없습니다.');
       return;
     }
-
-    // CSV 파일 헤더 정의
-    const headers = ['거래일자', '구분', '상세내역', '거래금액(원)'];
-    const rows = ledger.map((item) => [
-      item.date,
-      item.type,
-      item.detail,
-      item.amount,
-    ]);
-
-    // CSV 문자열 조립
-    const csvContent =
-      headers.join(',') +
-      '\n' +
-      rows.map((row) => row.map((val) => `"${val}"`).join(',')).join('\n');
-
-    // Excel 한글 깨짐을 방지하기 위해 BOM(\uFEFF) 문자 추가
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `매장정산원장_${startDate}_to_${endDate}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    setLoading(true);
+    try {
+      const orderIds = pendingOrders.map(o => o.order_id);
+      const { error } = await supabase
+        .from('orders')
+        .update({ order_status: '정산서 발행' })
+        .in('order_id', orderIds);
+      if (error) throw error;
+      await fetchInitialData();
+      if (onDataChange) onDataChange();
+      alert('정산서 발행 상태로 변경되었습니다.');
+    } catch (err) {
+      console.error('Error issue receipt:', err);
+      alert('정산서 발행 상태 변경 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // 배송 전 주문이 있는 고객만 필터링 (정산서 발행 상태만 가진 고객은 목록에서 제외)
+  const customersWithPendingOrders = customers.filter(c => 
+    orders.some(o => o.customer_id === c.customer_id && o.order_status === '배송 전')
+  );
+
+  // 검색 적용
+  const filteredCustomers = customersWithPendingOrders.filter(c => 
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.nickname && c.nickname.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    c.phone.includes(searchQuery)
+  );
+
+  const currentInvoiceCustomer = customers.find(c => c.customer_id === selectedCustomerId);
+  const currentInvoiceOrders = orders.filter(o => o.customer_id === selectedCustomerId);
+  const currentInvoiceTotal = currentInvoiceOrders.reduce((sum, o) => sum + o.total_price, 0);
+
   return (
-    <div className="content-area">
-      <div className="content-header">
-        <h1 className="content-title">매출 매입 및 순수익 통계</h1>
-      </div>
-
-      <div className="search-bar" style={{ alignItems: 'center' }}>
-        <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>시작일:</span>
-        <input
-          type="date"
-          className="input-control"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          style={{ width: '150px' }}
-        />
-        <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>종료일:</span>
-        <input
-          type="date"
-          className="input-control"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          style={{ width: '150px' }}
-        />
-        <button className="btn btn-secondary" onClick={handleSearch}>
-          조회
-        </button>
-        <button className="btn btn-primary" onClick={handleExportCSV}>
-          CSV 다운로드
-        </button>
-      </div>
-
-      <div className="metrics-grid">
-        <div className="metric-card glass-card">
-          <span className="metric-title">기간 매출 합계</span>
-          <span className="metric-value mint">₩ {summary.salesTotal.toLocaleString()}</span>
-        </div>
-        <div className="metric-card glass-card">
-          <span className="metric-title">기간 매입 합계 (인건비 포함)</span>
-          <span className="metric-value">₩ {summary.purchaseTotal.toLocaleString()}</span>
-        </div>
-        <div className="metric-card glass-card">
-          <span className="metric-title">최종 순수익</span>
-          <span className={`metric-value ${summary.netProfit >= 0 ? 'mint' : 'danger'}`}>
-            ₩ {summary.netProfit.toLocaleString()}
-          </span>
+    <div style={{ fontFamily: "'Hanken Grotesk', 'Malgun Gothic', sans-serif", height: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* 페이지 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, color: '#151c27', margin: 0, letterSpacing: '-0.01em' }}>정산서 발행</h2>
+          <p style={{ fontSize: '12px', color: '#6d7980', marginTop: '4px' }}>
+            배송 전 상태인 고객 목록과 정산서를 관리합니다.
+          </p>
         </div>
       </div>
 
-      <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: 'var(--text-primary)' }}>
-        상세 거래 원장
-      </h3>
-
-      <div className="table-container">
-        {loading ? (
-          <p style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>로딩 중...</p>
-        ) : (
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>거래일자</th>
-                <th>구분</th>
-                <th>적요/상세내역</th>
-                <th style={{ textAlign: 'right' }}>거래금액</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ledger.length === 0 ? (
-                <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
-                    해당 기간에 발생한 거래 내역이 없습니다.
-                  </td>
-                </tr>
+      <div className="grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px', flex: 1, minHeight: 0 }}>
+        
+        {/* 좌측 (5칸): 배송 전 고객 목록 */}
+        <div style={{ gridColumn: 'span 5', display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
+          <div style={{ background: '#ffffff', border: '1px solid #bcc8d1', borderRadius: '8px', padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            
+            <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#151c27', margin: '0 0 16px 0' }}>배송 전 대기 고객</h4>
+            
+            {/* 검색창 */}
+            <input
+              type="text"
+              placeholder="고객 이름, 닉네임 또는 연락처 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '13px', outline: 'none', marginBottom: '16px' }}
+            />
+            
+            {/* 리스트 영역 */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {loading ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#6d7980' }}>로딩 중...</div>
+              ) : filteredCustomers.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#6d7980' }}>검색 결과가 없습니다.</div>
               ) : (
-                ledger.map((item, idx) => {
-                  const isPositive = item.amount > 0;
-                  return (
-                    <tr key={idx}>
-                      <td>{item.date}</td>
-                      <td>
-                        <span
-                          className={`status-tag ${
-                            item.type === '매출' ? 'settled' : item.type === '매입' ? 'unsettled' : ''
-                          }`}
-                          style={{
-                            backgroundColor:
-                              item.type === '인건비' ? 'rgba(0, 180, 216, 0.15)' : '',
-                            color: item.type === '인건비' ? 'var(--color-blue)' : '',
-                          }}
-                        >
-                          {item.type}
-                        </span>
-                      </td>
-                      <td>{item.detail}</td>
-                      <td
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {filteredCustomers.map(cust => {
+                    const custOrders = orders.filter(o => o.customer_id === cust.customer_id);
+                    const custTotal = custOrders.reduce((sum, o) => sum + o.total_price, 0);
+                    const isSelected = selectedCustomerId === cust.customer_id;
+                    
+                    return (
+                      <li 
+                        key={cust.customer_id}
+                        onClick={() => setSelectedCustomerId(cust.customer_id)}
                         style={{
-                          textAlign: 'right',
-                          fontWeight: 'bold',
-                          color: isPositive ? 'var(--color-mint)' : 'var(--color-danger)',
+                          padding: '12px 16px',
+                          border: `1px solid ${isSelected ? '#006688' : '#e2e8f8'}`,
+                          borderRadius: '8px',
+                          background: isSelected ? '#f0f3ff' : '#ffffff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          transition: 'all 0.2s'
                         }}
                       >
-                        {isPositive ? '+' : '-'} ₩ {Math.abs(item.amount).toLocaleString()}
-                      </td>
-                    </tr>
-                  );
-                })
+                        <div>
+                          <div style={{ fontWeight: 600, color: isSelected ? '#006688' : '#151c27' }}>
+                            {cust.nickname && <span style={{ fontSize: '14px' }}>{cust.nickname} </span>}
+                            <span style={{ fontSize: '12px', color: '#6d7980' }}>{cust.name}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#6d7980', marginTop: '4px' }}>
+                            {cust.phone} | 주문 {custOrders.length}건
+                          </div>
+                        </div>
+                        <div style={{ fontWeight: 700, color: '#006b5c', fontSize: '14px' }}>
+                          ₩{custTotal.toLocaleString()}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
-            </tbody>
-          </table>
-        )}
+            </div>
+          </div>
+        </div>
+
+        {/* 우측 (7칸): 정산서 프리뷰 */}
+        <div style={{ gridColumn: 'span 7', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {selectedCustomerId && currentInvoiceCustomer ? (
+            <>
+              <div id="invoice-capture" className="receipt-paper" style={{ background: '#ffffff', border: '1px solid #bcc8d1', borderTop: '4px solid #006688', borderRadius: '8px', padding: '32px', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexShrink: 0 }}>
+                  <div>
+                    <h4 style={{ fontSize: '32px', fontWeight: 700, color: '#151c27', margin: 0, letterSpacing: '-0.02em', fontFamily: "'Hanken Grotesk', sans-serif" }}>INVOICE</h4>
+                    <p style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", color: '#6d7980', margin: '4px 0 0 0' }}>
+                      NO. INV-{todayStr.replace(/-/g, '')}-{String(currentInvoiceCustomer.customer_id).padStart(4, '0')}
+                    </p>
+                  </div>
+                  <span className="material-symbols-outlined" style={{ fontSize: '56px', color: '#006688', opacity: 0.2 }}>barcode</span>
+                </div>
+
+                {/* 고객 및 청구처 */}
+                <div style={{ padding: '16px', background: '#f0f3ff', borderRadius: '8px', marginBottom: '24px', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, color: '#151c27', fontSize: '16px' }}>
+                    {currentInvoiceCustomer.nickname ? `[${currentInvoiceCustomer.nickname}] ` : ''}{currentInvoiceCustomer.name} 님
+                  </div>
+                </div>
+
+                {/* 청구 상세 내역 테이블 */}
+                <div style={{ flex: 1 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #bcc8d1', background: '#f0f3ff' }}>
+                        <th style={{ textAlign: 'left', padding: '10px 12px', color: '#6d7980', fontSize: '11px', textTransform: 'uppercase' }}>구매일자</th>
+                        <th style={{ textAlign: 'left', padding: '10px 12px', color: '#6d7980', fontSize: '11px', textTransform: 'uppercase' }}>상품명</th>
+                        <th style={{ textAlign: 'center', padding: '10px 8px', color: '#6d7980', fontSize: '11px' }}>수량</th>
+                        <th style={{ textAlign: 'right', padding: '10px 12px', color: '#6d7980', fontSize: '11px' }}>금액</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentInvoiceOrders.map((o) => {
+                        const statusColor = o.order_status === '배송 전' ? '#006688' : '#e65100';
+                        return (
+                          <tr key={o.order_id} style={{ borderBottom: '1px solid #e2e8f8' }}>
+                            <td style={{ padding: '12px', color: '#6d7980', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
+                              {o.order_date ? new Date(o.order_date).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) : '-'}
+                            </td>
+                            <td style={{ padding: '12px', color: '#151c27', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 600 }}>{o.product_name}</span>
+                              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', color: statusColor, background: statusColor + '15', fontWeight: 600 }}>
+                                {o.order_status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>{o.quantity}</td>
+                            <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>
+                              ₩{o.total_price.toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 정산 합계 */}
+                <div style={{ borderTop: '2px dashed #006688', paddingTop: '16px', marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: '16px', fontWeight: 600, color: '#006688' }}>Grand Total</span>
+                  <span style={{ fontSize: '24px', fontWeight: 700, color: '#006688' }}>
+                    ₩{currentInvoiceTotal.toLocaleString()}
+                  </span>
+                </div>
+
+                {/* 입금 계좌 */}
+                <div style={{ marginTop: '24px', fontSize: '12px', color: '#6d7980', padding: '12px', background: '#f9f9ff', borderRadius: '8px', border: '1px solid #bcc8d1', flexShrink: 0, textAlign: 'center' }}>
+                  {BANK_INFO}
+                </div>
+              </div>
+
+              {/* 정산서 액션 버튼 */}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexShrink: 0, flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleBulkIssueReceipt}
+                  disabled={loading || !currentInvoiceOrders.some(o => o.order_status === '배송 전')}
+                  style={{
+                    flex: 1.2, padding: '12px', background: '#e65100', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600,
+                    cursor: loading || !currentInvoiceOrders.some(o => o.order_status === '배송 전') ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: !currentInvoiceOrders.some(o => o.order_status === '배송 전') ? 0.6 : 1
+                  }}
+                >
+                  <span className="material-symbols-outlined">receipt_long</span>
+                  정산서 발행
+                </button>
+                <button
+                  onClick={handleBulkCompleteFinance}
+                  disabled={loading}
+                  style={{
+                    flex: 1.2, padding: '12px', background: '#006b5c', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600,
+                    cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                  }}
+                >
+                  <span className="material-symbols-outlined">local_shipping</span>
+                  배송 완료
+                </button>
+                <button
+                  onClick={handleDownloadInvoice}
+                  style={{ flex: 1, padding: '12px', background: '#f0f3ff', color: '#006688', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <span className="material-symbols-outlined">download</span>
+                  이미지 저장
+                </button>
+                <button
+                  onClick={handleCopyInvoice}
+                  style={{ flex: 1.5, padding: '12px', background: '#006688', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <span className="material-symbols-outlined">content_copy</span>
+                  클립보드 복사
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #bcc8d1', borderRadius: '8px', background: 'rgba(255,255,255,0.5)', color: '#6d7980' }}>
+              좌측 목록에서 정산서를 발행할 고객을 선택해주세요.
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* 토스트 팝업 알림 */}
+      <div className={`toast-notification ${showToast ? 'show' : ''}`} style={{ background: '#151c27', border: '1px solid #bcc8d1' }}>
+        <span className="material-symbols-outlined" style={{ color: '#68fadd', fontSize: '20px' }}>check_circle</span>
+        <div>
+          <p style={{ fontSize: '12px', fontWeight: 'bold', margin: 0, color: '#ffffff' }}>정산서 복사 완료!</p>
+          <p style={{ fontSize: '10px', color: '#bcc8d1', margin: '2px 0 0 0' }}>카톡 창에 붙여넣기(Ctrl+V)하세요.</p>
+        </div>
+      </div>
+
     </div>
   );
 }
