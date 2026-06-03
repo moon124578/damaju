@@ -10,7 +10,8 @@ export default function Finance({ onDataChange }) {
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [showToast, setShowToast] = useState(false);
 
-  const BANK_INFO = '신한은행 110-456-789012 (예금주: 스마트주스토어)';
+  // 계좌 정보 상태 추가
+  const [bankInfo, setBankInfo] = useState('신한은행 110-456-789012 (예금주: 스마트주스토어)');
   const todayStr = new Date().toISOString().substring(0, 10);
 
   useEffect(() => {
@@ -244,7 +245,6 @@ export default function Finance({ onDataChange }) {
                       NO. INV-{todayStr.replace(/-/g, '')}-{String(currentInvoiceCustomer.customer_id).padStart(4, '0')}
                     </p>
                   </div>
-                  <span className="material-symbols-outlined" style={{ fontSize: '56px', color: '#006688', opacity: 0.2 }}>barcode</span>
                 </div>
 
                 {/* 고객 및 청구처 */}
@@ -254,33 +254,33 @@ export default function Finance({ onDataChange }) {
                   </div>
                 </div>
 
-                {/* 청구 상세 내역 테이블 */}
+                {/* 청구 상세 내역 테이블 (모바일 가독성을 위해 폰트 및 패딩 확대) */}
                 <div style={{ flex: 1 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                     <thead>
-                      <tr style={{ borderBottom: '1px solid #bcc8d1', background: '#f0f3ff' }}>
-                        <th style={{ textAlign: 'left', padding: '10px 12px', color: '#6d7980', fontSize: '11px', textTransform: 'uppercase' }}>구매일자</th>
-                        <th style={{ textAlign: 'left', padding: '10px 12px', color: '#6d7980', fontSize: '11px', textTransform: 'uppercase' }}>상품명</th>
-                        <th style={{ textAlign: 'center', padding: '10px 8px', color: '#6d7980', fontSize: '11px' }}>수량</th>
-                        <th style={{ textAlign: 'right', padding: '10px 12px', color: '#6d7980', fontSize: '11px' }}>금액</th>
+                      <tr style={{ borderBottom: '2px solid #bcc8d1', background: '#f0f3ff' }}>
+                        <th style={{ textAlign: 'left', padding: '12px 12px', color: '#6d7980', fontSize: '12px', textTransform: 'uppercase', fontWeight: 700 }}>구매일자</th>
+                        <th style={{ textAlign: 'left', padding: '12px 12px', color: '#6d7980', fontSize: '12px', textTransform: 'uppercase', fontWeight: 700 }}>상품명</th>
+                        <th style={{ textAlign: 'center', padding: '12px 8px', color: '#6d7980', fontSize: '12px', fontWeight: 700 }}>수량</th>
+                        <th style={{ textAlign: 'right', padding: '12px 12px', color: '#6d7980', fontSize: '12px', fontWeight: 700 }}>금액</th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentInvoiceOrders.map((o) => {
                         const statusColor = o.order_status === '배송 전' ? '#006688' : '#e65100';
                         return (
-                          <tr key={o.order_id} style={{ borderBottom: '1px solid #e2e8f8' }}>
-                            <td style={{ padding: '12px', color: '#6d7980', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
+                          <tr key={o.order_id} style={{ borderBottom: '1px solid #cbd5e1' }}>
+                            <td style={{ padding: '14px 12px', color: '#475569', fontSize: '13px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
                               {o.order_date ? new Date(o.order_date).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) : '-'}
                             </td>
-                            <td style={{ padding: '12px', color: '#151c27', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: 600 }}>{o.product_name}</span>
-                              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', color: statusColor, background: statusColor + '15', fontWeight: 600 }}>
+                            <td style={{ padding: '14px 12px', color: '#0f172a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '15px' }}>{o.product_name}</span>
+                              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', color: statusColor, background: statusColor + '15', fontWeight: 700 }}>
                                 {o.order_status}
                               </span>
                             </td>
-                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>{o.quantity}</td>
-                            <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>
+                            <td style={{ padding: '14px 8px', textAlign: 'center', fontSize: '14px', fontWeight: 700 }}>{o.quantity}</td>
+                            <td style={{ padding: '14px 12px', textAlign: 'right', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
                               ₩{o.total_price.toLocaleString()}
                             </td>
                           </tr>
@@ -290,44 +290,45 @@ export default function Finance({ onDataChange }) {
                   </table>
                 </div>
 
-                {/* 정산 합계 */}
-                <div style={{ borderTop: '2px dashed #006688', paddingTop: '16px', marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: '16px', fontWeight: 600, color: '#006688' }}>Grand Total</span>
-                  <span style={{ fontSize: '24px', fontWeight: 700, color: '#006688' }}>
+                {/* 정산 합계 (글자 크기 강조) */}
+                <div style={{ borderTop: '3px dashed #006688', paddingTop: '18px', marginTop: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#006688' }}>Grand Total</span>
+                  <span style={{ fontSize: '28px', fontWeight: 800, color: '#006688' }}>
                     ₩{currentInvoiceTotal.toLocaleString()}
                   </span>
                 </div>
 
-                {/* 입금 계좌 */}
-                <div style={{ marginTop: '24px', fontSize: '12px', color: '#6d7980', padding: '12px', background: '#f9f9ff', borderRadius: '8px', border: '1px solid #bcc8d1', flexShrink: 0, textAlign: 'center' }}>
-                  {BANK_INFO}
+                {/* 입금 계좌 (글자 크기 확대) */}
+                <div style={{ marginTop: '28px', fontSize: '14px', fontWeight: 700, color: '#1e293b', padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1.5px solid #bcc8d1', flexShrink: 0, textAlign: 'center', letterSpacing: '-0.3px' }}>
+                  {bankInfo}
                 </div>
               </div>
 
               {/* 정산서 액션 버튼 */}
-              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexShrink: 0, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  onClick={handleBulkCompleteFinance}
+                  disabled={loading}
+                  style={{
+                    flex: 0.8, padding: '12px 8px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                    cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                  }}
+                  title="배송 완료 처리"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>local_shipping</span>
+                  배송 완료
+                </button>
                 <button
                   onClick={handleBulkIssueReceipt}
                   disabled={loading || !currentInvoiceOrders.some(o => o.order_status === '배송 전')}
                   style={{
-                    flex: 1.2, padding: '12px', background: '#e65100', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600,
+                    flex: 1.5, padding: '12px', background: '#e65100', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600,
                     cursor: loading || !currentInvoiceOrders.some(o => o.order_status === '배송 전') ? 'not-allowed' : 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: !currentInvoiceOrders.some(o => o.order_status === '배송 전') ? 0.6 : 1
                   }}
                 >
                   <span className="material-symbols-outlined">receipt_long</span>
                   정산서 발행
-                </button>
-                <button
-                  onClick={handleBulkCompleteFinance}
-                  disabled={loading}
-                  style={{
-                    flex: 1.2, padding: '12px', background: '#006b5c', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                  }}
-                >
-                  <span className="material-symbols-outlined">local_shipping</span>
-                  배송 완료
                 </button>
                 <button
                   onClick={handleDownloadInvoice}
@@ -343,6 +344,18 @@ export default function Finance({ onDataChange }) {
                   <span className="material-symbols-outlined">content_copy</span>
                   클립보드 복사
                 </button>
+              </div>
+
+              {/* 입금 계좌 설정 직접 입력 칸 */}
+              <div style={{ marginTop: '16px', background: '#ffffff', border: '1px solid #bcc8d1', borderRadius: '8px', padding: '16px', flexShrink: 0 }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#3d484f', marginBottom: '6px' }}>입금 계좌 설정</label>
+                <input 
+                  type="text" 
+                  value={bankInfo} 
+                  onChange={(e) => setBankInfo(e.target.value)} 
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '6px', fontSize: '13px', outline: 'none', fontFamily: "'Hanken Grotesk', sans-serif" }}
+                  placeholder="인보이스에 노출될 계좌번호를 입력하세요"
+                />
               </div>
             </>
           ) : (
