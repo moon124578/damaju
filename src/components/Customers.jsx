@@ -1,6 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import * as XLSX from 'xlsx';
+import { matchChosung } from '../hangulSearch';
+
+const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7)}`;
+  }
+  if (cleaned.length === 10) {
+    if (cleaned.startsWith('02')) {
+      return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+    }
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  if (cleaned.length === 9 && cleaned.startsWith('02')) {
+    return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 5)}-${cleaned.slice(5)}`;
+  }
+  if (cleaned.length === 8) {
+    return `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
+  }
+  return phone;
+};
 
 export default function Customers({ onDataChange }) {
   const [customers, setCustomers] = useState([]);
@@ -68,7 +90,6 @@ export default function Customers({ onDataChange }) {
         .from('customers')
         .select('*');
       if (custErr) throw custErr;
-      setCustomers(custData || []);
 
       const { data: ordData, error: ordErr } = await supabase
         .from('orders')
@@ -85,7 +106,30 @@ export default function Customers({ onDataChange }) {
           staffs (staff_name)
         `);
       if (ordErr) throw ordErr;
-      setOrders(ordData || []);
+      
+      const ordersList = ordData || [];
+      setOrders(ordersList);
+
+      // 고객 데이터의 누적금액, 누적갯수, 주문횟수를 재조정합니다.
+      const adjustedCustomers = (custData || []).map(c => {
+        // 주문횟수: '주문 취소'가 아닌 모든 주문 건수 (총 주문 횟수)
+        const totalOrdersForCust = ordersList.filter(o => o.customer_id === c.customer_id && o.order_status !== '주문 취소');
+        const orderCount = totalOrdersForCust.length;
+
+        // 판매갯수 및 판매금액: '배송 완료' 상태인 주문 건들로 계산
+        const completedOrders = ordersList.filter(o => o.customer_id === c.customer_id && o.order_status === '배송 완료');
+        const totalQuantity = completedOrders.reduce((sum, o) => sum + o.quantity, 0);
+        const totalAmount = completedOrders.reduce((sum, o) => sum + o.total_price, 0);
+
+        return {
+          ...c,
+          order_count: orderCount,
+          total_quantity: totalQuantity,
+          total_amount: totalAmount
+        };
+      });
+
+      setCustomers(adjustedCustomers);
     } catch (err) {
       console.error('Error reloading data:', err);
     }
@@ -117,7 +161,7 @@ export default function Customers({ onDataChange }) {
 
     try {
       const updatePayload = {};
-      updatePayload[editField] = trimmedVal || null;
+      updatePayload[editField] = editField === 'phone' ? formatPhoneNumber(trimmedVal) : (trimmedVal || null);
 
       const { error } = await supabase
         .from('customers')
@@ -172,7 +216,7 @@ export default function Customers({ onDataChange }) {
 
     const finalName = formData.name.trim() || formData.nickname.trim();
     const finalNickname = formData.nickname.trim() || null;
-    const finalPhone = formData.phone.trim() || '';
+    const finalPhone = formatPhoneNumber(formData.phone.trim());
     const finalAddress = formData.address.trim() || null;
 
     try {
@@ -224,25 +268,25 @@ export default function Customers({ onDataChange }) {
       '고객 ID': c.customer_id,
       '닉네임': c.nickname || '',
       '고객명': c.name,
-      '연락처': c.phone,
+      '연락처': formatPhoneNumber(c.phone),
       '배송지 주소': c.address || '미입력',
       '주문 횟수': c.order_count,
-      '누적 수량': c.total_quantity,
+      '판매 갯수': c.total_quantity,
       '취소 횟수': c.cancel_count,
-      '누적 금액': c.total_amount,
+      '판매 금액': c.total_amount,
       '마지막 주문일': c.last_order_date ? new Date(c.last_order_date).toLocaleString() : '-',
     }));
-
+ 
     // Sheet 2: 전체 주문 내역 DB
     // 필터링된 고객들의 주문 내역만 내보냄
     const allowedCustomerIds = new Set(filteredCustomers.map(c => c.customer_id));
     const targetOrders = orders.filter(o => allowedCustomerIds.has(o.customer_id));
-
+ 
     const sheet2Data = targetOrders.map((o) => ({
       '주문 ID': o.order_id,
       '주문일자': o.order_date ? new Date(o.order_date).toLocaleString() : '-',
       '고객명': o.customers?.name || '-',
-      '연락처': o.customers?.phone || '-',
+      '연락처': o.customers?.phone ? formatPhoneNumber(o.customers.phone) : '-',
       '상품명': o.product_name,
       '수량': o.quantity,
       '단가': o.unit_price,
@@ -250,69 +294,69 @@ export default function Customers({ onDataChange }) {
       '담당 직원': o.staffs?.staff_name || '-',
       '주문 상태': o.order_status,
     }));
-
+ 
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(sheet1Data);
     const ws2 = XLSX.utils.json_to_sheet(sheet2Data);
-
+ 
     XLSX.utils.book_append_sheet(wb, ws1, '고객 정보 DB');
     XLSX.utils.book_append_sheet(wb, ws2, '전체 주문 내역 DB');
-
+ 
     XLSX.writeFile(wb, `라이브커머스_통합_CRM_데이터_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
-
-
+ 
+ 
   // 필터링 적용 로직
   const filteredCustomers = customers.filter((c) => {
-    // 1. 검색어 필터 (이름, 닉네임 또는 연락처)
+    // 1. 검색어 필터 (이름, 닉네임 또는 연락처 - 초성 검색 지원)
     const matchSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.nickname && c.nickname.toLowerCase().includes(search.toLowerCase())) ||
+      matchChosung(c.name, search) ||
+      (c.nickname && matchChosung(c.nickname, search)) ||
       c.phone.includes(search);
     if (!matchSearch) return false;
-
+ 
     // 해당 고객의 주문 목록
     const customerOrders = orders.filter((o) => o.customer_id === c.customer_id);
-
+ 
     // 2. 직원 필터
     if (selectedStaffId !== 'all') {
       const matchStaff = customerOrders.some((o) => o.staff_id?.toString() === selectedStaffId);
       if (!matchStaff) return false;
     }
-
+ 
     // 3. 상태 필터
     if (selectedStatus !== 'all') {
       const matchStatus = customerOrders.some((o) => o.order_status === selectedStatus);
       if (!matchStatus) return false;
     }
-
+ 
     // 블랙리스트 필터
     if (blacklistFilter === '일반' && c.is_blacklist) return false;
     if (blacklistFilter === '블랙리스트' && !c.is_blacklist) return false;
-
+ 
     return true;
   });
-
+ 
   // 정렬 적용
   const sortedCustomers = [...filteredCustomers].sort((a, b) => {
     const key = sortConfig.key;
     const direction = sortConfig.direction === 'asc' ? 1 : -1;
-
+ 
     let valA = a[key];
     let valB = b[key];
-
+ 
     if (typeof valA === 'string') {
       return valA.localeCompare(valB) * direction;
     }
     if (valA == null) return 1 * direction;
     if (valB == null) return -1 * direction;
-
+ 
     return (valA - valB) * direction;
   });
-
+ 
   const totalPages = Math.ceil(sortedCustomers.length / itemsPerPage) || 1;
   const displayedCustomers = sortedCustomers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
+ 
   return (
     <div className="content-area">
       <div className="content-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -326,7 +370,7 @@ export default function Customers({ onDataChange }) {
           ➕ 신규 회원 추가
         </button>
       </div>
-
+ 
       {/* 필터 바 */}
       <div className="search-bar" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
         <input
@@ -369,7 +413,7 @@ export default function Customers({ onDataChange }) {
           </select>
         </div>
       </div>
-
+ 
       {/* 고객 리스트 테이블 */}
       <div className="table-container" style={{ overflowX: 'auto' }}>
         {loading ? (
@@ -384,9 +428,9 @@ export default function Customers({ onDataChange }) {
                 <th onClick={() => handleSort('phone')}>연락처 {sortConfig.key === 'phone' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('address')}>배송지 주소 {sortConfig.key === 'address' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('order_count')} style={{ textAlign: 'center' }}>주문횟수 {sortConfig.key === 'order_count' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('total_quantity')} style={{ textAlign: 'center' }}>누적갯수 {sortConfig.key === 'total_quantity' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('total_quantity')} style={{ textAlign: 'center' }}>판매갯수 {sortConfig.key === 'total_quantity' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('cancel_count')} style={{ textAlign: 'center' }}>취소횟수 {sortConfig.key === 'cancel_count' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('total_amount')} style={{ textAlign: 'right' }}>누적금액 {sortConfig.key === 'total_amount' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('total_amount')} style={{ textAlign: 'right' }}>판매금액 {sortConfig.key === 'total_amount' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('last_order_date')}>마지막 주문일 {sortConfig.key === 'last_order_date' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
               </tr>
             </thead>
@@ -432,7 +476,7 @@ export default function Customers({ onDataChange }) {
                         }}
                       >
                         {cust.phone && cust.phone.trim() !== '' && cust.phone !== '010-0000-0000' ? (
-                          cust.phone
+                          formatPhoneNumber(cust.phone)
                         ) : (
                           <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', textDecoration: 'underline', fontSize: '11px' }}>
                             연락처 입력

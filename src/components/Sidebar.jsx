@@ -5,8 +5,10 @@ const MENU_ITEMS = [
   { id: 'customers',  label: '회원정보',       icon: 'group' },
   { id: 'orders',     label: '주문 관리',       icon: 'receipt_long' },
   { id: 'finance',    label: '정산서 발행',     icon: 'receipt_long' },
+  { id: 'shipping',   label: '배송 관리',       icon: 'local_shipping' },
   { id: 'employees',  label: '직원 정산',       icon: 'payments' },
   { id: 'products',   label: '상품 관리',       icon: 'inventory_2' },
+  { id: 'stats',      label: '통계',           icon: 'query_stats' },
   { id: 'settings',   label: '설정',           icon: 'settings' },
 ];
 
@@ -50,7 +52,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
 
       {/* 네비게이션 */}
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 12px' }}>
-        {MENU_ITEMS.filter(item => item.id !== 'settings' || user?.username === 'admin').map(item => {
+        {MENU_ITEMS.filter(item => (item.id !== 'settings' && item.id !== 'employees') || user?.username === 'admin').map(item => {
           const isActive = activeTab === item.id;
           return (
             <button

@@ -2,15 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import * as XLSX from 'xlsx';
 
+const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7)}`;
+  }
+  if (cleaned.length === 10) {
+    if (cleaned.startsWith('02')) {
+      return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+    }
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  if (cleaned.length === 9 && cleaned.startsWith('02')) {
+    return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 5)}-${cleaned.slice(5)}`;
+  }
+  if (cleaned.length === 8) {
+    return `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
+  }
+  return phone;
+};
+
 export default function Settings({ user }) {
-  const [bankInfo, setBankInfo] = useState(
-    localStorage.getItem('bank_account_info') || '신한은행 110-456-789012 (예금주: 스마트주스토어)'
-  );
-  
-  // 인보이스 폰트 크기 설정 상태
-  const [invoiceFontSize, setInvoiceFontSize] = useState(
-    localStorage.getItem('invoice_font_size') || '14'
-  );
+  const [bankInfo, setBankInfo] = useState('');
+  const [invoiceFontSize, setInvoiceFontSize] = useState('14');
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   // 비밀번호 변경 관련 상태
   const [newPassword, setNewPassword] = useState('');
@@ -34,7 +50,29 @@ export default function Settings({ user }) {
 
   useEffect(() => {
     fetchAdmins();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*');
+      if (error) throw error;
+      
+      if (data) {
+        const bank = data.find(item => item.key === 'bank_account_info');
+        const size = data.find(item => item.key === 'invoice_font_size');
+        if (bank) setBankInfo(bank.value);
+        if (size) setInvoiceFontSize(size.value);
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   const fetchAdmins = async () => {
     setListLoading(true);
@@ -52,16 +90,32 @@ export default function Settings({ user }) {
     }
   };
 
-  const handleSaveBankInfo = () => {
-    localStorage.setItem('bank_account_info', bankInfo);
-    window.dispatchEvent(new Event('bank_info_changed'));
-    alert('계좌번호 설정이 저장되었습니다.');
+  const handleSaveBankInfo = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({ key: 'bank_account_info', value: bankInfo, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      window.dispatchEvent(new Event('bank_info_changed'));
+      alert('계좌번호 설정이 저장되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('계좌번호 저장 중 오류가 발생했습니다.');
+    }
   };
 
-  const handleSaveFontSize = () => {
-    localStorage.setItem('invoice_font_size', invoiceFontSize);
-    window.dispatchEvent(new Event('invoice_style_changed'));
-    alert('인보이스 글자 크기 설정이 저장되었습니다.');
+  const handleSaveFontSize = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({ key: 'invoice_font_size', value: invoiceFontSize, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      window.dispatchEvent(new Event('invoice_style_changed'));
+      alert('인보이스 글자 크기 설정이 저장되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('글자 크기 저장 중 오류가 발생했습니다.');
+    }
   };
 
   // 비밀번호 변경 처리 (현재 로그인한 admin 계정)
@@ -210,7 +264,7 @@ export default function Settings({ user }) {
           '고객 ID': c.customer_id,
           '닉네임': c.nickname || '',
           '고객명': c.name,
-          '연락처': c.phone,
+          '연락처': formatPhoneNumber(c.phone),
           '배송지 주소': c.address || '미입력',
           '주문 횟수': orderCount,
           '누적 수량': totalQty,
@@ -224,7 +278,7 @@ export default function Settings({ user }) {
         '주문 ID': o.order_id,
         '주문일자': o.order_date ? new Date(o.order_date).toLocaleString() : '-',
         '고객명': o.customers?.name || '-',
-        '연락처': o.customers?.phone || '-',
+        '연락처': o.customers?.phone ? formatPhoneNumber(o.customers.phone) : '-',
         '상품명': o.product_name,
         '수량': o.quantity,
         '단가': o.unit_price,
@@ -257,6 +311,7 @@ export default function Settings({ user }) {
     { id: 'finance',    label: '정산서 발행',     icon: 'receipt_long' },
     { id: 'employees',  label: '직원정산',       icon: 'payments' },
     { id: 'products',   label: '상품관리',       icon: 'inventory_2' },
+    { id: 'stats',      label: '통계',           icon: 'query_stats' },
     { id: 'settings',   label: '설정 (관리자)',    icon: 'manage_accounts' },
   ];
 
@@ -460,6 +515,19 @@ export default function Settings({ user }) {
             </h4>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0 }}>
               상품 탭에 등록된 공식 상품 목록만 주문 관리에서 물품명 자동완성을 지원하며 정밀 정산에 활용됩니다. 상품을 추가하거나 가격을 수정하면 실시간 연계됩니다.
+            </p>
+          </div>
+        )}
+
+        {/* 6.1. 통계 관련 설정 */}
+        {activeSubTab === 'stats' && (
+          <div style={{ maxWidth: '600px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-symbols-outlined" style={{ color: 'var(--color-mint)' }}>query_stats</span>
+              일별 통계 안내
+            </h4>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0 }}>
+              선택된 일자별로 고객들의 상세 주문/취소 현황을 한눈에 조회할 수 있으며, 검색 기능을 활용해 신속하게 특정 닉네임 또는 담당직원별 결과를 요약합니다.
             </p>
           </div>
         )}

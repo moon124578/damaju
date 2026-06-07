@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { matchChosung } from '../hangulSearch';
 
 export default function Products({ onDataChange }) {
   const [products, setProducts] = useState([]);
@@ -32,15 +33,19 @@ export default function Products({ onDataChange }) {
   const fetchProducts = async (searchVal = search) => {
     setLoading(true);
     try {
-      let query = supabase.from('products').select('*');
-
-      if (searchVal.trim()) {
-        query = query.ilike('name', `%${searchVal}%`);
-      }
-
-      const { data, error } = await query.order('name', { ascending: true });
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('name', { ascending: true });
+        
       if (error) throw error;
-      setProducts(data || []);
+      
+      let filteredData = data || [];
+      if (searchVal.trim()) {
+        filteredData = filteredData.filter(prod => matchChosung(prod.name, searchVal));
+      }
+      
+      setProducts(filteredData);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
@@ -49,8 +54,9 @@ export default function Products({ onDataChange }) {
   };
 
   const handleSearchChange = (e) => {
-    setSearch(e.target.value);
-    fetchProducts(e.target.value);
+    const val = e.target.value;
+    setSearch(val);
+    fetchProducts(val);
   };
 
   const openAddModal = () => {

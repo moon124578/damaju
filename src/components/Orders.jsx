@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { matchChosung } from '../hangulSearch';
 
 export default function Orders({ onDataChange }) {
   const [orders, setOrders] = useState([]);
@@ -19,6 +20,14 @@ export default function Orders({ onDataChange }) {
   // 체크박스 선택 상태 (배송 전 일괄 처리용)
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
 
+  // 주문 수정 모달 상태
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [editProduct, setEditProduct] = useState('');
+  const [editQty, setEditQty] = useState(1);
+  const [editUnitPrice, setEditUnitPrice] = useState(0);
+  const [editStaffId, setEditStaffId] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+
 
   // 1. 주문 폼 상태
   const [custQuery, setCustQuery] = useState('');
@@ -34,7 +43,9 @@ export default function Orders({ onDataChange }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const [qty, setQty] = useState(1);
-  const [orderStaffId, setOrderStaffId] = useState('');
+  const [orderStaffId, setOrderStaffId] = useState(() => {
+    return localStorage.getItem('last_selected_staff_id') || '';
+  });
 
   // 2. 장바구니 상태
   const [cartItems, setCartItems] = useState([]);
@@ -69,7 +80,14 @@ export default function Orders({ onDataChange }) {
         .order('staff_id', { ascending: true });
       setStaffs(staffData || []);
       if (staffData && staffData.length > 0) {
-        setOrderStaffId(staffData[0].staff_id.toString());
+        const savedStaffId = localStorage.getItem('last_selected_staff_id');
+        const exists = staffData.some(s => s.staff_id.toString() === savedStaffId);
+        if (savedStaffId && exists) {
+          setOrderStaffId(savedStaffId);
+        } else {
+          setOrderStaffId(staffData[0].staff_id.toString());
+          localStorage.setItem('last_selected_staff_id', staffData[0].staff_id.toString());
+        }
       }
 
       // 4. 주문 목록 로드
@@ -86,7 +104,7 @@ export default function Orders({ onDataChange }) {
       let query = supabase
         .from('orders')
         .select(`
-          order_id, customer_id, product_name, quantity, unit_price, total_price, order_date, order_status,
+          order_id, customer_id, product_name, quantity, unit_price, total_price, order_date, order_status, refund_date,
           customers (nickname, name, phone, address), staffs (staff_name, staff_id)
         `);
 
@@ -112,8 +130,8 @@ export default function Orders({ onDataChange }) {
     setSelectedCustomer(null);
     if (val.trim()) {
       const matches = customers.filter((c) =>
-        c.name.toLowerCase().includes(val.toLowerCase()) ||
-        (c.nickname && c.nickname.toLowerCase().includes(val.toLowerCase()))
+        matchChosung(c.name, val) ||
+        (c.nickname && matchChosung(c.nickname, val))
       );
       setCustSuggestions(matches);
       setShowCustDropdown(true);
@@ -154,7 +172,7 @@ export default function Orders({ onDataChange }) {
     setSelectedProduct(null);
     if (val.trim()) {
       const matches = products.filter((p) =>
-        p.name.toLowerCase().includes(val.toLowerCase())
+        matchChosung(p.name, val)
       );
       setProdSuggestions(matches);
       setShowProdDropdown(true);
@@ -301,9 +319,13 @@ export default function Orders({ onDataChange }) {
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
+      const updateData = { order_status: newStatus };
+      if (newStatus === '환불 완료') {
+        updateData.refund_date = new Date().toISOString();
+      }
       const { error } = await supabase
         .from('orders')
-        .update({ order_status: newStatus })
+        .update(updateData)
         .eq('order_id', orderId);
       if (error) throw error;
       await fetchOrders();
@@ -314,23 +336,129 @@ export default function Orders({ onDataChange }) {
     }
   };
 
-  const handleBulkComplete = async () => {
-    if (selectedOrderIds.length === 0) return;
-    if (!window.confirm(`선택한 ${selectedOrderIds.length}건의 주문을 배송 완료 처리하시겠습니까?`)) return;
+  const handleUpdateOrder = async (e) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    setLoading(true);
+    try {
+      const totalPrice = Number(editQty) * Number(editUnitPrice);
+      const updateData = {
+        product_name: editProduct,
+        quantity: Number(editQty),
+        unit_price: Number(editUnitPrice),
+        total_price: totalPrice,
+        staff_id: editStaffId ? Number(editStaffId) : null,
+        order_status: editStatus
+      };
+      if (editStatus === '환불 완료' && editingOrder.order_status !== '환불 완료') {
+        updateData.refund_date = new Date().toISOString();
+      }
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('order_id', editingOrder.order_id);
+
+      if (error) throw error;
+      setEditingOrder(null);
+      await fetchOrders();
+      onDataChange();
+      alert('주문 정보가 수정되었습니다.');
+    } catch (err) {
+      console.error('Error updating order:', err);
+      alert('주문 수정 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelOrderDirect = async () => {
+    if (!editingOrder) return;
+    if (!window.confirm('이 주문을 취소하시겠습니까?')) return;
     setLoading(true);
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ order_status: '배송 완료' })
+        .update({ order_status: '주문 취소' })
+        .eq('order_id', editingOrder.order_id);
+
+      if (error) throw error;
+      setEditingOrder(null);
+      await fetchOrders();
+      onDataChange();
+      alert('주문이 취소되었습니다.');
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      alert('주문 취소 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefundOrderDirect = async () => {
+    if (!editingOrder) return;
+    if (!window.confirm('이 주문을 환불 처리하시겠습니까?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          order_status: '환불 완료',
+          refund_date: new Date().toISOString()
+        })
+        .eq('order_id', editingOrder.order_id);
+
+      if (error) throw error;
+      setEditingOrder(null);
+      await fetchOrders();
+      onDataChange();
+      alert('환불 처리가 완료되었습니다.');
+    } catch (err) {
+      console.error('Error refunding order:', err);
+      alert('환불 처리 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!editingOrder) return;
+    if (!window.confirm(`주문번호 ${editingOrder.order_id}번을 완전히 삭제하시겠습니까?\n삭제하면 복구할 수 없습니다.`)) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('order_id', editingOrder.order_id);
+      if (error) throw error;
+      setEditingOrder(null);
+      await fetchOrders();
+      onDataChange();
+      alert('주문이 삭제되었습니다.');
+    } catch (err) {
+      console.error('Error deleting order:', err);
+      alert('주문 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkComplete = async () => {
+    if (selectedOrderIds.length === 0) return;
+    if (!window.confirm(`선택한 ${selectedOrderIds.length}건의 주문을 입금 완료 처리하시겠습니까?`)) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ order_status: '입금 완료' })
         .in('order_id', selectedOrderIds);
       if (error) throw error;
       setSelectedOrderIds([]);
       await fetchOrders();
       onDataChange();
-      alert('일괄 배송 완료 처리되었습니다.');
+      alert('일괄 입금 완료 처리되었습니다.');
     } catch (err) {
       console.error('Error bulk updating status:', err);
-      alert('일괄 배송 완료 처리 중 오류가 발생했습니다.');
+      alert('일괄 입금 완료 처리 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -339,16 +467,16 @@ export default function Orders({ onDataChange }) {
   const handleBulkCompleteIssuedReceipts = async () => {
     const issuedOrders = orders.filter(o => o.order_status === '정산서 발행');
     if (issuedOrders.length === 0) {
-      alert('배송 완료 처리할 "정산서 발행" 상태의 주문 건이 없습니다.');
+      alert('입금 완료 처리할 "정산서 발행" 상태의 주문 건이 없습니다.');
       return;
     }
 
     // 1단계 확인 안전장치
-    if (!window.confirm(`[안전장치 1단계] "정산서 발행" 상태인 주문 ${issuedOrders.length}건 전체를 "배송 완료"로 변경하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
+    if (!window.confirm(`[안전장치 1단계] "정산서 발행" 상태인 주문 ${issuedOrders.length}건 전체를 "입금 완료"로 변경하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
       return;
     }
     // 2단계 확인 안전장치
-    if (!window.confirm(`[안전장치 2단계 - 최종 확인] 정말로 진행하시겠습니까? 실제 상품 배송 처리가 물리적으로 완료되었는지 다시 한 번 확인해 주시기 바랍니다.`)) {
+    if (!window.confirm(`[안전장치 2단계 - 최종 확인] 정말로 진행하시겠습니까? 실제 입금 처리가 완료되었는지 다시 한 번 확인해 주시기 바랍니다.`)) {
       return;
     }
 
@@ -357,16 +485,16 @@ export default function Orders({ onDataChange }) {
       const orderIds = issuedOrders.map(o => o.order_id);
       const { error } = await supabase
         .from('orders')
-        .update({ order_status: '배송 완료' })
+        .update({ order_status: '입금 완료' })
         .in('order_id', orderIds);
       if (error) throw error;
 
       await fetchOrders();
       onDataChange();
-      alert('정산서 발행 건들의 일괄 배송 완료 처리가 성공적으로 완료되었습니다.');
+      alert('정산서 발행 건들의 일괄 입금 완료 처리가 성공적으로 완료되었습니다.');
     } catch (err) {
       console.error('Error updating issued orders to completed:', err);
-      alert('일괄 배송 완료 처리 중 오류가 발생했습니다.');
+      alert('일괄 입금 완료 처리 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -393,13 +521,15 @@ export default function Orders({ onDataChange }) {
       return false;
     }
     // 3. 검색어 필터
+    // 3. 검색어 필터 (초성 검색 지원)
     if (!orderSearchQuery.trim()) return true;
-    const q = orderSearchQuery.toLowerCase();
-    const custNickname = o.customers?.nickname?.toLowerCase() || '';
-    const custName = o.customers?.name?.toLowerCase() || '';
-    const prodName = o.product_name?.toLowerCase() || '';
-    const staffName = o.staffs?.staff_name?.toLowerCase() || '';
-    return custNickname.includes(q) || custName.includes(q) || prodName.includes(q) || staffName.includes(q);
+    const q = orderSearchQuery;
+    return (
+      (o.customers?.nickname && matchChosung(o.customers.nickname, q)) ||
+      (o.customers?.name && matchChosung(o.customers.name, q)) ||
+      (o.product_name && matchChosung(o.product_name, q)) ||
+      (o.staffs?.staff_name && matchChosung(o.staffs.staff_name, q))
+    );
   });
 
   // 정렬 적용된 주문 목록
@@ -542,7 +672,10 @@ export default function Orders({ onDataChange }) {
                 <select
                   style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontFamily: "'Hanken Grotesk', sans-serif", outline: 'none', background: '#ffffff' }}
                   value={orderStaffId}
-                  onChange={(e) => setOrderStaffId(e.target.value)}
+                  onChange={(e) => {
+                    setOrderStaffId(e.target.value);
+                    localStorage.setItem('last_selected_staff_id', e.target.value);
+                  }}
                 >
                   {staffs.map(s => (
                     <option key={s.staff_id} value={s.staff_id.toString()}>{s.staff_name}</option>
@@ -650,11 +783,13 @@ export default function Orders({ onDataChange }) {
                   <option value="all">전체 상태</option>
                   <option value="배송 전">배송 전</option>
                   <option value="정산서 발행">정산서 발행</option>
+                  <option value="입금 완료">입금 완료</option>
                   <option value="배송 완료">배송 완료</option>
                   <option value="주문 취소">주문 취소</option>
+                  <option value="환불 완료">환불 완료</option>
                 </select>
 
-                {/* 일괄 배송 완료 버튼 */}
+                {/* 일괄 입금 완료 버튼 */}
                 {filterStatus === '배송 전' && (
                   <button
                     onClick={handleBulkComplete}
@@ -674,12 +809,12 @@ export default function Orders({ onDataChange }) {
                       fontFamily: "'Hanken Grotesk', sans-serif"
                     }}
                   >
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>local_shipping</span>
-                    일괄 배송완료 ({selectedOrderIds.length})
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>payments</span>
+                    일괄 입금완료 ({selectedOrderIds.length})
                   </button>
                 )}
 
-                {/* 정산서 발행 -> 배송 완료 일괄 처리 버튼 */}
+                {/* 정산서 발행 -> 입금 완료 일괄 처리 버튼 */}
                 <button
                   onClick={handleBulkCompleteIssuedReceipts}
                   disabled={loading}
@@ -698,19 +833,25 @@ export default function Orders({ onDataChange }) {
                     fontFamily: "'Hanken Grotesk', sans-serif",
                     boxShadow: '0 2px 4px rgba(230, 81, 0, 0.15)'
                   }}
-                  title="정산서 발행 상태의 모든 주문 건을 배송 완료 상태로 변경합니다"
+                  title="정산서 발행 상태의 모든 주문 건을 입금 완료 상태로 변경합니다"
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>task_alt</span>
-                  정산서발행 일괄 배송완료
+                  정산서발행 일괄 입금완료
                 </button>
               </div>
-              <span style={{ fontSize: '11px', color: '#6d7980', fontFamily: "'JetBrains Mono', monospace" }}>Today: {todayOrders.length} Orders</span>
+              {filterStatus === '환불 완료' ? (
+                <span style={{ fontSize: '11px', color: '#ba1a1a', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>
+                  환불 {sortedOrders.length}건 | 총 ₩{sortedOrders.reduce((sum, o) => sum + (o.total_price || 0), 0).toLocaleString()}
+                </span>
+              ) : (
+                <span style={{ fontSize: '11px', color: '#6d7980', fontFamily: "'JetBrains Mono', monospace" }}>Today: {todayOrders.length} Orders</span>
+              )}
             </div>
             
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table className="stitch-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: '#f0f3ff' }}>
+                  <tr style={{ background: filterStatus === '환불 완료' ? '#fff5f5' : '#f0f3ff' }}>
                     {filterStatus === '배송 전' && (
                       <th style={{ padding: '12px 16px', fontSize: '12px', color: '#3d484f', fontWeight: 500, fontFamily: 'JetBrains Mono, monospace', textAlign: 'center', width: '40px' }}>
                         <input
@@ -762,21 +903,29 @@ export default function Orders({ onDataChange }) {
                         </span>
                       </div>
                     </th>
-                    <th style={{ padding: '12px 24px', fontSize: '12px', color: '#3d484f', fontWeight: 500, fontFamily: 'JetBrains Mono, monospace' }}>상태</th>
+                    {filterStatus === '환불 완료' && (
+                      <th style={{ padding: '12px 24px', fontSize: '12px', color: '#ba1a1a', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>환불일</th>
+                    )}
+                    {filterStatus !== '환불 완료' && (
+                      <th style={{ padding: '12px 24px', fontSize: '12px', color: '#3d484f', fontWeight: 500, fontFamily: 'JetBrains Mono, monospace' }}>상태</th>
+                    )}
                     <th style={{ padding: '12px 24px', fontSize: '12px', color: '#3d484f', fontWeight: 500, fontFamily: 'JetBrains Mono, monospace', textAlign: 'right' }}>금액</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={filterStatus === '배송 전' ? "8" : "7"} style={{ textAlign: 'center', color: '#6d7980', padding: '32px' }}>주문 내역이 없습니다.</td>
+                      <td colSpan={filterStatus === '배송 전' ? "8" : filterStatus === '환불 완료' ? "8" : "7"} style={{ textAlign: 'center', color: '#6d7980', padding: '32px' }}>
+                        {filterStatus === '환불 완료' ? '환불 내역이 없습니다.' : '주문 내역이 없습니다.'}
+                      </td>
                     </tr>
                   ) : (
                     sortedOrders.map((o) => {
                       const isCancelled = o.order_status === '주문 취소';
-                      const statusColor = o.order_status === '배송 전' ? '#006688' : o.order_status === '정산서 발행' ? '#e65100' : o.order_status === '배송 완료' ? '#006b5c' : '#ba1a1a';
+                      const isRefunded = o.order_status === '환불 완료';
+                      const statusColor = o.order_status === '배송 전' ? '#006688' : o.order_status === '정산서 발행' ? '#e65100' : o.order_status === '입금 완료' ? '#006b5c' : o.order_status === '배송 완료' ? '#0284c7' : '#ba1a1a';
                       return (
-                        <tr key={o.order_id} className="stitch-tr" style={{ opacity: isCancelled ? 0.55 : 1, textDecoration: isCancelled ? 'line-through' : 'none', borderBottom: '1px solid #e2e8f8' }}>
+                        <tr key={o.order_id} className="stitch-tr" style={{ opacity: isCancelled ? 0.55 : 1, textDecoration: isCancelled ? 'line-through' : 'none', borderBottom: '1px solid #e2e8f8', background: isRefunded && filterStatus === '환불 완료' ? '#fff8f8' : 'transparent' }}>
                           {filterStatus === '배송 전' && (
                             <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                               <input
@@ -799,11 +948,14 @@ export default function Orders({ onDataChange }) {
                           <td 
                             style={{ padding: '12px 24px', cursor: 'pointer' }}
                             onClick={() => {
-                              setFilterStatus('배송 전');
-                              setOrderSearchQuery(o.customers?.nickname || o.customers?.name || '');
-                              setSelectedOrderIds([]);
+                              setEditingOrder(o);
+                              setEditProduct(o.product_name);
+                              setEditQty(o.quantity);
+                              setEditUnitPrice(o.unit_price);
+                              setEditStaffId(o.staffs?.staff_id?.toString() || '');
+                              setEditStatus(o.order_status);
                             }}
-                            title="클릭 시 이 고객의 배송 전 품목만 필터링합니다"
+                            title="클릭 시 주문 정보를 수정합니다"
                           >
                             {o.customers?.nickname && <span style={{ fontSize: '14px', color: '#006688', display: 'block', fontWeight: 700 }}>{o.customers.nickname}</span>}
                             <span style={{ fontSize: '11px', color: '#6d7980' }}>{o.customers?.name || '신규'}</span>
@@ -813,18 +965,29 @@ export default function Orders({ onDataChange }) {
                           <td style={{ padding: '12px 24px', color: '#3d484f', fontSize: '13px' }}>
                             {o.staffs?.staff_name || '-'}
                           </td>
-                          <td style={{ padding: '12px 24px' }}>
-                            <select
-                              value={o.order_status}
-                              onChange={(e) => handleStatusChange(o.order_id, e.target.value)}
-                              style={{ border: '1px solid #bcc8d1', borderRadius: '999px', padding: '2px 8px', fontSize: '11px', fontFamily: "'Hanken Grotesk', sans-serif", color: statusColor, background: statusColor + '15', cursor: 'pointer', outline: 'none' }}
-                            >
-                              <option value="배송 전">배송 전</option>
-                              <option value="정산서 발행">정산서 발행</option>
-                              <option value="배송 완료">배송 완료</option>
-                              <option value="주문 취소">주문 취소</option>
-                            </select>
-                          </td>
+                          {filterStatus === '환불 완료' ? (
+                            <td style={{ padding: '12px 24px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#ba1a1a', fontWeight: 600 }}>
+                              {o.refund_date
+                                ? new Date(o.refund_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+                                : '-'
+                              }
+                            </td>
+                          ) : (
+                            <td style={{ padding: '12px 24px' }}>
+                              <select
+                                value={o.order_status}
+                                onChange={(e) => handleStatusChange(o.order_id, e.target.value)}
+                                style={{ border: '1px solid #bcc8d1', borderRadius: '999px', padding: '2px 8px', fontSize: '11px', fontFamily: "'Hanken Grotesk', sans-serif", color: statusColor, background: statusColor + '15', cursor: 'pointer', outline: 'none' }}
+                              >
+                                <option value="배송 전">배송 전</option>
+                                <option value="정산서 발행">정산서 발행</option>
+                                <option value="입금 완료">입금 완료</option>
+                                <option value="배송 완료">배송 완료</option>
+                                <option value="주문 취소">주문 취소</option>
+                                <option value="환불 완료">환불 완료</option>
+                              </select>
+                            </td>
+                          )}
                           <td style={{ padding: '12px 24px', textAlign: 'right', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
                             ₩{o.total_price.toLocaleString()}
                           </td>
@@ -838,6 +1001,182 @@ export default function Orders({ onDataChange }) {
           </div>
         </div>
       </div>
+
+      {/* 주문 수정 모달 */}
+      {editingOrder && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0, 0, 0, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 999, backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: '#ffffff', border: '1px solid #bcc8d1', borderRadius: '12px',
+            padding: '24px', width: '90%', maxWidth: '440px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            display: 'flex', flexDirection: 'column', gap: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#151c27' }}>주문 정보 수정</h3>
+              <button 
+                onClick={() => setEditingOrder(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6d7980', display: 'flex', alignItems: 'center', padding: '4px' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateOrder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontWeight: 700 }}>고객 (ID/이름)</label>
+                <input
+                  type="text"
+                  value={editingOrder.customers ? `${editingOrder.customers.nickname ? `[${editingOrder.customers.nickname}] ` : ''}${editingOrder.customers.name}` : '알 수 없음'}
+                  disabled
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f8', borderRadius: '8px', background: '#f8fafc', color: '#6d7980', fontSize: '13px', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontWeight: 700 }}>상품명</label>
+                <input
+                  type="text"
+                  value={editProduct}
+                  onChange={(e) => setEditProduct(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '13px', outline: 'none', background: '#ffffff', color: '#151c27' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontWeight: 700 }}>수량</label>
+                  <input
+                    type="number"
+                    value={editQty}
+                    onChange={(e) => setEditQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    min="1"
+                    required
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '13px', outline: 'none', textAlign: 'center', background: '#ffffff', color: '#151c27' }}
+                  />
+                </div>
+                <div style={{ flex: 1.5 }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontWeight: 700 }}>단가 (₩)</label>
+                  <input
+                    type="number"
+                    value={editUnitPrice}
+                    onChange={(e) => setEditUnitPrice(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    min="0"
+                    required
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '13px', outline: 'none', textAlign: 'right', background: '#ffffff', color: '#151c27' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontWeight: 700 }}>담당 직원</label>
+                  <select
+                    value={editStaffId}
+                    onChange={(e) => setEditStaffId(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '13px', outline: 'none', background: '#ffffff', color: '#151c27', cursor: 'pointer' }}
+                  >
+                    <option value="">담당자 없음</option>
+                    {staffs.map(s => (
+                      <option key={s.staff_id} value={s.staff_id.toString()}>{s.staff_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontWeight: 700 }}>주문 상태</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '13px', outline: 'none', background: '#ffffff', color: '#151c27', cursor: 'pointer' }}
+                  >
+                    <option value="배송 전">배송 전</option>
+                    <option value="정산서 발행">정산서 발행</option>
+                    <option value="입금 완료">입금 완료</option>
+                    <option value="배송 완료">배송 완료</option>
+                    <option value="주문 취소">주문 취소</option>
+                    <option value="환불 완료">환불 완료</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '8px', display: 'flex', gap: '8px', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {editingOrder.order_status !== '주문 취소' && (
+                    <button
+                      type="button"
+                      onClick={handleCancelOrderDirect}
+                      disabled={loading}
+                      style={{
+                        padding: '10px 12px', background: '#ffe0e0', color: '#ba1a1a', border: '1px solid #ffb4ab',
+                        borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>cancel</span>
+                      취소
+                    </button>
+                  )}
+                  {editingOrder.order_status !== '환불 완료' && (
+                    <button
+                      type="button"
+                      onClick={handleRefundOrderDirect}
+                      disabled={loading}
+                      style={{
+                        padding: '10px 12px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a',
+                        borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>autorenew</span>
+                      환불
+                    </button>
+                  )}
+                  {editingOrder.order_status === '배송 전' && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteOrder}
+                      disabled={loading}
+                      style={{
+                        padding: '10px 12px', background: '#ba1a1a', color: '#ffffff', border: 'none',
+                        borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>delete_forever</span>
+                      삭제
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(null)}
+                    style={{
+                      padding: '10px 14px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1',
+                      borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    style={{
+                      padding: '10px 18px', background: '#006688', color: '#ffffff', border: 'none',
+                      borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

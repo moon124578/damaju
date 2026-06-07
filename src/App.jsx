@@ -10,6 +10,8 @@ import Orders from './components/Orders';
 import Products from './components/Products';
 import Employees from './components/Employees';
 import Finance from './components/Finance';
+import Shipping from './components/Shipping';
+import Stats from './components/Stats';
 import Settings from './components/Settings';
 
 export default function App() {
@@ -159,6 +161,8 @@ export default function App() {
           {activeTab === 'products' && <Products onDataChange={triggerRefresh} />}
           {activeTab === 'employees' && <Employees onDataChange={triggerRefresh} />}
           {activeTab === 'finance' && <Finance onDataChange={triggerRefresh} />}
+          {activeTab === 'shipping' && <Shipping onDataChange={triggerRefresh} />}
+          {activeTab === 'stats' && <Stats />}
           {activeTab === 'settings' && user?.username === 'admin' && <Settings user={user} />}
         </div>
       </div>

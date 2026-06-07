@@ -61,7 +61,7 @@ function initializeDatabase() {
         total_price INTEGER NOT NULL,
         order_date TEXT NOT NULL,
         staff_id INTEGER NULL,
-        order_status TEXT NOT NULL CHECK(order_status IN ('배송 전', '배송 완료', '주문 취소')),
+        order_status TEXT NOT NULL CHECK(order_status IN ('배송 전', '입금 완료', '주문 취소')),
         legacy_order_id TEXT NULL,
         FOREIGN KEY(customer_id) REFERENCES customers(customer_id),
         FOREIGN KEY(staff_id) REFERENCES staffs(staff_id)

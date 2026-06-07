@@ -34,12 +34,14 @@ export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [orders, setOrders] = useState([]);
   const [metrics, setMetrics] = useState({
-    pendingQty: 0,
-    pendingCustomers: 0,
-    todayCount: 0,
-    todaySales: 0,
-    todayCancelled: 0,
-    totalCancelled: 0,
+    monthlySalesAmount: 0,
+    monthlySalesCount: 0,
+    monthlyCancelCount: 0,
+    monthlyRefundCount: 0,
+    todaySalesAmount: 0,
+    todaySalesCount: 0,
+    todayCancelCount: 0,
+    todayRefundCount: 0,
   });
 
   // 디지털 메모장(포스트잇) 상태
@@ -88,15 +90,29 @@ export default function Dashboard() {
       const list = ordersData || [];
       setOrders(list);
 
-      const pending = list.filter(o => o.order_status === '배송 전');
+      // 이번 달 주문 필터
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth();
+      const monthOrders = list.filter(o => {
+        if (!o.order_date) return false;
+        const d = new Date(o.order_date);
+        return d.getFullYear() === curYear && d.getMonth() === curMonth;
+      });
+      const monthSales = monthOrders.filter(o => o.order_status !== '주문 취소' && o.order_status !== '환불 완료');
+
       const today = list.filter(o => o.order_date?.substring(0, 10) === todayStr);
+      const todaySales = today.filter(o => o.order_status !== '주문 취소' && o.order_status !== '환불 완료');
+
       setMetrics({
-        pendingQty: pending.reduce((s, o) => s + o.quantity, 0),
-        pendingCustomers: new Set(pending.filter(o => o.customer_id).map(o => o.customer_id)).size,
-        todayCount: today.length,
-        todaySales: today.filter(o => o.order_status !== '주문 취소').reduce((s, o) => s + o.total_price, 0),
-        todayCancelled: today.filter(o => o.order_status === '주문 취소').length,
-        totalCancelled: list.filter(o => o.order_status === '주문 취소').length,
+        monthlySalesAmount: monthSales.reduce((s, o) => s + o.total_price, 0),
+        monthlySalesCount: monthSales.reduce((s, o) => s + o.quantity, 0),
+        monthlyCancelCount: monthOrders.filter(o => o.order_status === '주문 취소').length,
+        monthlyRefundCount: monthOrders.filter(o => o.order_status === '환불 완료').length,
+        todaySalesAmount: todaySales.reduce((s, o) => s + o.total_price, 0),
+        todaySalesCount: todaySales.reduce((s, o) => s + o.quantity, 0),
+        todayCancelCount: today.filter(o => o.order_status === '주문 취소').length,
+        todayRefundCount: today.filter(o => o.order_status === '환불 완료').length,
       });
     } catch (err) {
       console.error('Dashboard error:', err);
@@ -281,7 +297,9 @@ export default function Dashboard() {
           }
 
           const dayOrders = getOrdersForDay(day);
-          const salesTotal = dayOrders.filter(o => o.order_status !== '주문 취소').reduce((s, o) => s + o.total_price, 0);
+          const salesTotal = dayOrders.filter(o => o.order_status !== '주문 취소' && o.order_status !== '환불 완료').reduce((s, o) => s + o.total_price, 0);
+          const refundCount = dayOrders.filter(o => o.order_status === '환불 완료').length;
+          const cancelCount = dayOrders.filter(o => o.order_status === '주문 취소').length;
           const isToday = new Date().getDate() === day && new Date().getMonth() === month && new Date().getFullYear() === year;
 
           return (
@@ -296,6 +314,20 @@ export default function Dashboard() {
                   <span className="calendar-sales-amount" style={{ fontSize: '13px', opacity: 0.85 }}>
                     ₩{salesTotal.toLocaleString()}
                   </span>
+                  {(refundCount > 0 || cancelCount > 0) && (
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                      {cancelCount > 0 && (
+                        <span style={{ fontSize: '10px', color: '#ef4444', background: '#fef2f2', padding: '1px 4px', borderRadius: '4px', fontWeight: 600 }}>
+                          취소 {cancelCount}
+                        </span>
+                      )}
+                      {refundCount > 0 && (
+                        <span style={{ fontSize: '10px', color: '#ba1a1a', background: '#fff5f5', padding: '1px 4px', borderRadius: '4px', fontWeight: 600 }}>
+                          환불 {refundCount}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -323,45 +355,38 @@ export default function Dashboard() {
         </button>
       </header>
 
-      {/* KPI 4구 그리드 */}
       <section className="metrics-grid">
         <KpiCard
-          title="배송 전 물품 수"
-          value={metrics.pendingQty.toLocaleString()}
-          unit="개"
-          trendText={`${metrics.pendingCustomers}명 고객 대상`}
-          trendIcon="schedule"
-          trendColor="#0ea5e9"
-          icon="inventory_2"
+          title="월 판매"
+          value={`₩${metrics.monthlySalesAmount.toLocaleString()}`}
+          unit=""
+          sub={`${metrics.monthlySalesCount.toLocaleString()}개 판매`}
+          icon="payments"
           iconColor="#0ea5e9"
         />
         <KpiCard
-          title="배송 대상 수"
-          value={metrics.pendingCustomers}
-          unit="곳"
-          trendText="순차 배송 대기중"
-          trendIcon="local_shipping"
-          trendColor="#0d9488"
-          icon="local_shipping"
-          iconColor="#0d9488"
+          title="월 취소/환불"
+          value={metrics.monthlyCancelCount + metrics.monthlyRefundCount}
+          unit="건"
+          sub={`취소 ${metrics.monthlyCancelCount} | 환불 ${metrics.monthlyRefundCount}`}
+          icon="sync_problem"
+          iconColor="#ef4444"
         />
         <KpiCard
-          title="오늘의 주문"
-          value={metrics.todayCount}
-          unit="건"
-          sub={`${metrics.todaySales.toLocaleString()}원`}
+          title="오늘 판매"
+          value={`₩${metrics.todaySalesAmount.toLocaleString()}`}
+          unit=""
+          sub={`${metrics.todaySalesCount.toLocaleString()}개 판매`}
           icon="shopping_bag"
           iconColor="#f97316"
         />
         <KpiCard
-          title="취소 수"
-          value={metrics.todayCancelled}
+          title="오늘 취소/환불"
+          value={metrics.todayCancelCount + metrics.todayRefundCount}
           unit="건"
-          trendText={`누적 ${metrics.totalCancelled}건`}
-          trendIcon="info"
-          trendColor="#ef4444"
+          sub={`취소 ${metrics.todayCancelCount} | 환불 ${metrics.todayRefundCount}`}
           icon="cancel"
-          iconColor="#ef4444"
+          iconColor="#ba1a1a"
         />
       </section>
 
@@ -373,7 +398,7 @@ export default function Dashboard() {
           <div className="calendar-header">
             <div className="calendar-title-wrapper">
               <span className="material-symbols-outlined" style={{ color: 'var(--color-mint)', fontSize: '20px' }}>calendar_month</span>
-              <h2>월간 주문 현황</h2>
+              <h2>담아쥬 캘린더</h2>
             </div>
             <div className="calendar-nav">
               <button className="calendar-btn" onClick={handlePrevMonth}>
