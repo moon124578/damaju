@@ -239,8 +239,14 @@ export default function Shipping({ onDataChange }) {
       XLSX.utils.sheet_add_aoa(worksheet, data, { origin: "A2" });
 
       const today = new Date();
-      const dateStr = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-      XLSX.writeFile(workbook, `택배송장_${dateStr}.xlsx`);
+      const year = today.getFullYear();
+      const month = (today.getMonth() + 1).toString().padStart(2, '0');
+      const day = today.getDate().toString().padStart(2, '0');
+      const hours = today.getHours().toString().padStart(2, '0');
+      const minutes = today.getMinutes().toString().padStart(2, '0');
+      const seconds = today.getSeconds().toString().padStart(2, '0');
+      const dateStr = `${year}${month}${day}${hours}${minutes}${seconds}`;
+      XLSX.writeFile(workbook, `${dateStr}택배.xlsx`);
     } catch (error) {
       console.error('엑셀 생성 중 오류 발생:', error);
       alert('택배송장 엑셀 파일을 생성하는 중 오류가 발생했습니다. (' + error.message + ')');
