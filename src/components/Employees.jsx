@@ -5,6 +5,9 @@ export default function Employees({ onDataChange }) {
   const [staffs, setStaffs] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 정산서 문구 상태
+  const [invoiceMessage, setInvoiceMessage] = useState('예쁜 거, 다 담아드릴게요. 이용해 주셔서 감사합니다! ❤️');
+
   // 정산 유형: '주정산' (7일), '2주정산' (14일), '월정산' (당월 1일~말일)
   const [settlementType, setSettlementType] = useState('주정산');
   const [selectedStaffId, setSelectedStaffId] = useState('all');
@@ -77,9 +80,10 @@ export default function Employees({ onDataChange }) {
 ■ 세전 수수료 합계: ₩${row.incentiveAmount.toLocaleString()}
 ■ 3.3% 원천징수 세액 (-): ₩${tax.toLocaleString()}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 ★ 실제 세후 실수령액: ₩${netPay.toLocaleString()}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-예쁜 거, 다 담아드릴게요. 감사합니다! ❤️`;
+${invoiceMessage}`;
 
     navigator.clipboard.writeText(text)
       .then(() => {
@@ -102,7 +106,27 @@ export default function Employees({ onDataChange }) {
     setEndDate(yesterday.toISOString().substring(0, 10));
 
     fetchData();
+    fetchSettings();
+
+    const updateStyle = () => { fetchSettings(); };
+    window.addEventListener('invoice_style_changed', updateStyle);
+    return () => window.removeEventListener('invoice_style_changed', updateStyle);
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('key', 'invoice_message');
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setInvoiceMessage(data[0].value);
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -1061,8 +1085,8 @@ export default function Employees({ onDataChange }) {
               </div>
 
               {/* 감사 문구 */}
-              <div style={{ textAlign: 'center', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', borderTop: '1.5px solid #f1f5f9', paddingTop: '12px' }}>
-                예쁜 거, 다 담아드릴게요. 항상 감사드립니다! ❤️
+              <div style={{ textAlign: 'center', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', borderTop: '1.5px solid #f1f5f9', paddingTop: '12px', whiteSpace: 'pre-wrap' }}>
+                {invoiceMessage}
               </div>
             </div>
 

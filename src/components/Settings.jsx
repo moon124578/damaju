@@ -26,6 +26,7 @@ const formatPhoneNumber = (phone) => {
 export default function Settings({ user }) {
   const [bankInfo, setBankInfo] = useState('');
   const [invoiceFontSize, setInvoiceFontSize] = useState('14');
+  const [invoiceMessage, setInvoiceMessage] = useState('예쁜 거, 다 담아드릴게요. 이용해 주셔서 감사합니다! ❤️');
   const [settingsLoading, setSettingsLoading] = useState(false);
 
   // 비밀번호 변경 관련 상태
@@ -64,8 +65,10 @@ export default function Settings({ user }) {
       if (data) {
         const bank = data.find(item => item.key === 'bank_account_info');
         const size = data.find(item => item.key === 'invoice_font_size');
+        const msg = data.find(item => item.key === 'invoice_message');
         if (bank) setBankInfo(bank.value);
         if (size) setInvoiceFontSize(size.value);
+        if (msg) setInvoiceMessage(msg.value);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -115,6 +118,20 @@ export default function Settings({ user }) {
     } catch (err) {
       console.error(err);
       alert('글자 크기 저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleSaveInvoiceMessage = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({ key: 'invoice_message', value: invoiceMessage, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      window.dispatchEvent(new Event('invoice_style_changed'));
+      alert('정산서 발행 문구가 저장되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('정산서 문구 저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -487,6 +504,60 @@ export default function Settings({ user }) {
                 }}
               >
                 글자 크기 저장
+              </button>
+            </div>
+
+            {/* 정산서 발행 문구 설정 */}
+            <div style={{ gridColumn: 'span 12', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--color-mint)' }}>edit_note</span>
+                정산서 발행 문구 설정
+              </h4>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>하단 안내 멘트</label>
+                <textarea
+                  value={invoiceMessage}
+                  onChange={(e) => setInvoiceMessage(e.target.value)}
+                  rows={3}
+                  style={{ 
+                    width: '100%', padding: '10px 14px', 
+                    border: '1px solid var(--border-color)', borderRadius: '8px', 
+                    fontSize: '13px', outline: 'none', resize: 'vertical',
+                    background: 'var(--bg-main)', color: 'var(--text-primary)',
+                    fontFamily: "'Hanken Grotesk', sans-serif"
+                  }}
+                  placeholder="예: 예쁜 거, 다 담아드릴게요. 이용해 주셔서 감사합니다! ❤️"
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', width: '100%' }}>특수문자 삽입 (클릭 시 자동 입력)</span>
+                {['❤️', '✨', '🎁', '🎉', '🍀', '😊', '⭐', '👍', '🔥', '🌸', '💬', '💕'].map(char => (
+                  <button
+                    key={char}
+                    type="button"
+                    onClick={() => setInvoiceMessage(prev => prev + char)}
+                    style={{
+                      background: 'var(--bg-main)', border: '1px solid var(--border-color)', 
+                      borderRadius: '4px', padding: '6px 10px', fontSize: '16px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    {char}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleSaveInvoiceMessage}
+                style={{ 
+                  padding: '12px', background: 'var(--color-mint)', color: '#ffffff', 
+                  border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, 
+                  cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif", alignSelf: 'flex-start'
+                }}
+              >
+                문구 저장
               </button>
             </div>
 

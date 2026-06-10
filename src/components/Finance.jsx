@@ -40,6 +40,9 @@ export default function Finance({ onDataChange }) {
   // 인보이스 폰트 크기 상태 추가 (Supabase DB 연동)
   const [invoiceFontSize, setInvoiceFontSize] = useState('14');
   
+  // 정산서 문구 상태 추가
+  const [invoiceMessage, setInvoiceMessage] = useState('예쁜 거, 다 담아드릴게요. 이용해 주셔서 감사합니다! ❤️');
+  
   const todayStr = new Date().toISOString().substring(0, 10);
 
   const fetchSettings = async () => {
@@ -51,8 +54,10 @@ export default function Finance({ onDataChange }) {
       if (data) {
         const bank = data.find(item => item.key === 'bank_account_info');
         const size = data.find(item => item.key === 'invoice_font_size');
+        const msg = data.find(item => item.key === 'invoice_message');
         if (bank) setBankInfo(bank.value);
         if (size) setInvoiceFontSize(size.value);
+        if (msg) setInvoiceMessage(msg.value);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -467,8 +472,8 @@ export default function Finance({ onDataChange }) {
                 </div>
 
                 {/* 하단 감사 멘트 */}
-                <div style={{ marginTop: '16px', fontSize: `${Number(invoiceFontSize) - 1}px`, color: '#6d7980', textAlign: 'center', fontWeight: 500, fontStyle: 'italic', letterSpacing: '-0.3px', borderTop: '1px solid #e2e8f8', paddingTop: '12px' }}>
-                  예쁜 거, 다 담아드릴게요. 이용해 주셔서 감사합니다! ❤️
+                <div style={{ marginTop: '16px', fontSize: `${Number(invoiceFontSize) - 1}px`, color: '#6d7980', textAlign: 'center', fontWeight: 500, fontStyle: 'italic', letterSpacing: '-0.3px', borderTop: '1px solid #e2e8f8', paddingTop: '12px', whiteSpace: 'pre-wrap' }}>
+                  {invoiceMessage}
                 </div>
               </div>
 
