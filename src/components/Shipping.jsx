@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import * as XLSX from 'xlsx';
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
@@ -208,6 +209,44 @@ export default function Shipping({ onDataChange }) {
     }
   };
 
+  const handleDownloadWaybill = async () => {
+    if (shippingRows.length === 0) {
+      alert('출력할 배송 정보가 없습니다.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/songjang.xlsx');
+      if (!response.ok) {
+        throw new Error('songjang.xlsx 파일을 찾을 수 없습니다.');
+      }
+      const arrayBuffer = await response.arrayBuffer();
+
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+
+      const data = shippingRows.map(row => {
+        const name = row.customer.name && row.customer.name !== '알 수 없음' ? row.customer.name : (row.customer.nickname || '이름 없음');
+        const phone = formatPhoneNumber(row.customer.phone);
+        const address = row.customer.address || '';
+        const category = '의류';
+        const quantity = row.totalQuantity;
+
+        return [name, phone, address, category, quantity];
+      });
+
+      XLSX.utils.sheet_add_aoa(worksheet, data, { origin: "A2" });
+
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+      XLSX.writeFile(workbook, `택배송장_${dateStr}.xlsx`);
+    } catch (error) {
+      console.error('엑셀 생성 중 오류 발생:', error);
+      alert('택배송장 엑셀 파일을 생성하는 중 오류가 발생했습니다. (' + error.message + ')');
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -262,6 +301,18 @@ export default function Shipping({ onDataChange }) {
           >
             <span className="material-symbols-outlined">print</span>
             배송 명단 인쇄
+          </button>
+          <button
+            onClick={handleDownloadWaybill}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '10px 18px', background: '#475569', color: '#ffffff',
+              border: 'none', borderRadius: '8px', cursor: 'pointer',
+              fontSize: '13px', fontWeight: 700, transition: 'all 0.15s ease'
+            }}
+          >
+            <span className="material-symbols-outlined">receipt_long</span>
+            택배송장
           </button>
         </div>
       </div>
