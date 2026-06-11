@@ -90,13 +90,16 @@ export default function Stats() {
 
   // 3. 상단 요약 정보 계산 (최종 필터링된 주문 기준)
   const summary = useMemo(() => {
-    let salesCount = 0; // 판매건수 (배송 완료 기준)
-    let salesQty = 0; // 판매수량
-    let salesAmount = 0; // 판매금액
+    let totalCount = 0; // 총판매건수
+    let totalQty = 0; // 총판매수량
+
+    let salesCount = 0; // 실판매건수 (배송 완료 기준)
+    let salesQty = 0; // 실판매수량
+    let salesAmount = 0; // 실제판매금액
 
     let pendingCount = 0; // 판매전건수 (배송 대기: 배송 전, 정산서 발행, 입금 완료)
     let pendingQty = 0; // 판매전수량
-    let pendingAmount = 0; // 판매전금액
+    let pendingAmount = 0; // 판매전 금액
 
     let cancelCount = 0; // 취소건수
     let cancelAmount = 0; // 취소금액
@@ -105,11 +108,14 @@ export default function Stats() {
     let refundAmount = 0; // 환불금액
 
     finalFilteredOrders.forEach(o => {
-      if (o.order_status === '배송 완료') {
+      totalCount += 1;
+      totalQty += o.quantity;
+
+      if (o.order_status === '배송 완료' || o.order_status === '입금 완료') {
         salesCount += 1;
         salesQty += o.quantity;
         salesAmount += o.total_price;
-      } else if (o.order_status === '배송 전' || o.order_status === '정산서 발행' || o.order_status === '입금 완료') {
+      } else if (o.order_status === '배송 전' || o.order_status === '정산서 발행') {
         pendingCount += 1;
         pendingQty += o.quantity;
         pendingAmount += o.total_price;
@@ -122,14 +128,12 @@ export default function Stats() {
       }
     });
 
-    const realPayment = salesAmount;
-
     return {
+      totalCount, totalQty,
       salesCount, salesQty, salesAmount,
       pendingCount, pendingQty, pendingAmount,
       cancelCount, cancelAmount,
-      refundCount, refundAmount,
-      realPayment
+      refundCount, refundAmount
     };
   }, [finalFilteredOrders]);
 
@@ -147,7 +151,7 @@ export default function Stats() {
     finalFilteredOrders.forEach(o => {
       const dateStr = getLocalDateString(o.order_date);
       if (dateMap[dateStr]) {
-        if (o.order_status === '배송 완료') {
+        if (o.order_status === '배송 완료' || o.order_status === '입금 완료') {
           dateMap[dateStr].sales += o.total_price;
         } else if (o.order_status === '주문 취소' || o.order_status === '환불 완료') {
           dateMap[dateStr].cancel += o.total_price;
@@ -166,7 +170,7 @@ export default function Stats() {
   const staffChartData = useMemo(() => {
     const map = {};
     finalFilteredOrders.forEach(o => {
-      if (o.order_status !== '배송 완료') return;
+      if (o.order_status !== '배송 완료' && o.order_status !== '입금 완료') return;
       const name = o.staffs?.staff_name || '담당자 없음';
       map[name] = (map[name] || 0) + o.total_price;
     });
@@ -181,7 +185,7 @@ export default function Stats() {
   const productChartData = useMemo(() => {
     const map = {};
     finalFilteredOrders.forEach(o => {
-      if (o.order_status !== '배송 완료') return;
+      if (o.order_status !== '배송 완료' && o.order_status !== '입금 완료') return;
       const name = o.product_name;
       map[name] = (map[name] || 0) + o.quantity;
     });
@@ -199,7 +203,7 @@ export default function Stats() {
       const realName = o.customers?.name || '신규 고객';
       const displayName = nickname ? `${nickname} (${realName})` : realName;
       const staffName = o.staffs?.staff_name || '담당자 없음';
-      const isSales = o.order_status === '배송 완료';
+      const isSales = o.order_status === '배송 완료' || o.order_status === '입금 완료';
       const isCancelled = o.order_status === '주문 취소' || o.order_status === '환불 완료';
 
       return {
@@ -375,53 +379,69 @@ export default function Stats() {
         </div>
       </div>
 
-      {/* 요약 현황 9칸 그리드 */}
+      {/* 요약 현황 5칸 그리드 (상하 배치) */}
       <div>
         <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', margin: '0 0 10px 0' }}>요약</h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
           
-          {/* Row 1: 판매 & 배송대기 기본 정보 */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>판매건수</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{summary.salesCount} 건</span>
-          </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>판매수량</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{summary.salesQty} 개</span>
-          </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#006b5c', fontWeight: 600 }}>판매금액 (입금완료액)</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#006b5c' }}>{summary.salesAmount.toLocaleString()} 원</span>
-          </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#006688', fontWeight: 600 }}>실결제금액 (입금완료액)</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#006688' }}>{summary.realPayment.toLocaleString()} 원</span>
-          </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#e65100', fontWeight: 600 }}>판매전 건수 (배송대기)</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#e65100' }}>{summary.pendingCount} 건</span>
+          {/* 총판매 */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>총판매건수</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{summary.totalCount} 건</div>
+            </div>
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '4px' }}>총판매수량</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>{summary.totalQty} 개</div>
+            </div>
           </div>
 
-          {/* Row 2: 대기금액, 취소 및 환불 정보 */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#e65100', fontWeight: 600 }}>판매전금액 (배송대기액)</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#e65100' }}>{summary.pendingAmount.toLocaleString()} 원</span>
+          {/* 판매전 (배송대기) */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#e65100', fontWeight: 600, marginBottom: '4px' }}>판매전건수</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#e65100' }}>{summary.pendingCount} 건</div>
+            </div>
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#e65100', fontWeight: 600, marginBottom: '4px' }}>판매전 금액</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#e65100' }}>{summary.pendingAmount.toLocaleString()} 원</div>
+            </div>
           </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#ba1a1a', fontWeight: 600 }}>취소 건수</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#ba1a1a' }}>{summary.cancelCount} 건</span>
+
+          {/* 실판매 */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#006b5c', fontWeight: 600, marginBottom: '4px' }}>실판매건수</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#006b5c' }}>{summary.salesCount} 건</div>
+            </div>
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#006b5c', fontWeight: 600, marginBottom: '4px' }}>실제판매금액</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#006b5c' }}>{summary.salesAmount.toLocaleString()} 원</div>
+            </div>
           </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#ba1a1a', fontWeight: 600 }}>취소 금액</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#ba1a1a' }}>{summary.cancelAmount.toLocaleString()} 원</span>
+
+          {/* 취소 */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#ba1a1a', fontWeight: 600, marginBottom: '4px' }}>취소건수</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#ba1a1a' }}>{summary.cancelCount} 건</div>
+            </div>
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#ba1a1a', fontWeight: 600, marginBottom: '4px' }}>취소금액</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#ba1a1a' }}>{summary.cancelAmount.toLocaleString()} 원</div>
+            </div>
           </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#6d7980', fontWeight: 600 }}>환불 건수</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#475569' }}>{summary.refundCount} 건</span>
-          </div>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#6d7980', fontWeight: 600 }}>환불 금액</span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#475569' }}>{summary.refundAmount.toLocaleString()} 원</span>
+
+          {/* 환불 */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#6d7980', fontWeight: 600, marginBottom: '4px' }}>환불건수</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#475569' }}>{summary.refundCount} 건</div>
+            </div>
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#6d7980', fontWeight: 600, marginBottom: '4px' }}>환불금액</div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#475569' }}>{summary.refundAmount.toLocaleString()} 원</div>
+            </div>
           </div>
 
         </div>
