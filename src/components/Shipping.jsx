@@ -74,17 +74,30 @@ export default function Shipping({ onDataChange }) {
       const rows = Object.values(customerMap).map(group => {
         const orderIds = [];
         let totalQuantity = 0;
+        const dateQuantityMap = {};
 
         group.items.forEach(item => {
           orderIds.push(item.order_id);
           totalQuantity += item.quantity;
+
+          const dateObj = new Date(item.order_date);
+          const day = dateObj.getDate();
+          if (!dateQuantityMap[day]) {
+            dateQuantityMap[day] = 0;
+          }
+          dateQuantityMap[day] += item.quantity;
         });
+
+        const dateQuantityArray = Object.keys(dateQuantityMap)
+          .sort((a, b) => Number(a) - Number(b))
+          .map(day => `${day}일 ${dateQuantityMap[day]}개`);
 
         return {
           customer: group.customer,
           order_date: group.order_date,
           order_status: group.order_status,
           totalQuantity,
+          dateQuantityArray,
           order_ids: orderIds
         };
       });
@@ -388,6 +401,7 @@ export default function Shipping({ onDataChange }) {
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '120px' }}>닉네임[이름]</th>
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, width: '110px' }}>연락처</th>
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>주소</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '120px' }}>일자별 갯수</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '70px' }}>총 갯수</th>
                 <th className="no-print" style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '150px' }}>관리</th>
               </tr>
@@ -421,6 +435,19 @@ export default function Shipping({ onDataChange }) {
                     {/* 3. 주소 */}
                     <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
                       {customer.address || '배송지 주소 미입력'}
+                    </td>
+
+                    {/* 3.5 일자별 갯수 */}
+                    <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      {row.dateQuantityArray && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
+                          {Array.from({ length: Math.ceil(row.dateQuantityArray.length / 3) }).map((_, i) => (
+                            <div key={i} style={{ whiteSpace: 'nowrap' }}>
+                              {row.dateQuantityArray.slice(i * 3, i * 3 + 3).join(' / ')}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </td>
 
                     {/* 4. 총 갯수 */}
