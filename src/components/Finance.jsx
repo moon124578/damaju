@@ -33,6 +33,8 @@ export default function Finance({ onDataChange }) {
   // 선택 기준을 고객ID가 아닌 고유 '행 키' (invoice_id 혹은 customer_id-상태 조합 등)로 관리합니다.
   const [selectedRowKey, setSelectedRowKey] = useState(null);
   const [showToast, setShowToast] = useState(false);
+  const [shippingFeePaid, setShippingFeePaid] = useState(false);
+  const [isKeep, setIsKeep] = useState(false);
 
   // 계좌 정보 상태 추가 (Supabase DB 연동)
   const [bankInfo, setBankInfo] = useState('신한은행 110-456-789012 (예금주: 스마트주스토어)');
@@ -232,16 +234,29 @@ export default function Finance({ onDataChange }) {
 
   const handleBulkCompleteFinance = async () => {
     if (!selectedRow || currentInvoiceOrders.length === 0) return;
-    if (!window.confirm(`${currentInvoiceCustomer?.name || '고객'}님의 선택한 묶음 주문 전체를 입금 완료로 변경하시겠습니까?`)) return;
+    if (!shippingFeePaid && !isKeep) {
+      alert('배송비 완료 또는 Keep 중 하나 이상을 체크해주세요.');
+      return;
+    }
+    const checks = [];
+    if (shippingFeePaid) checks.push('배송비 완료');
+    if (isKeep) checks.push('Keep');
+    if (!window.confirm(`${currentInvoiceCustomer?.name || '고객'}님의 선택한 묶음 주문 전체를 입금 완료로 변경하시겠습니까?\n\n체크 항목: ${checks.join(', ')}`)) return;
     setLoading(true);
     try {
       const orderIds = currentInvoiceOrders.map(o => o.order_id);
       const { error } = await supabase
         .from('orders')
-        .update({ order_status: '입금 완료' })
+        .update({ 
+          order_status: '입금 완료',
+          shipping_fee_paid: shippingFeePaid,
+          is_keep: isKeep
+        })
         .in('order_id', orderIds);
       if (error) throw error;
       setSelectedRowKey(null);
+      setShippingFeePaid(false);
+      setIsKeep(false);
       await fetchInitialData();
       if (onDataChange) onDataChange();
       alert('입금 완료 처리되었습니다.');
@@ -477,16 +492,61 @@ export default function Finance({ onDataChange }) {
                 </div>
               </div>
 
+              {/* 배송비 완료 / Keep 체크 영역 */}
+              <div style={{ 
+                display: 'flex', gap: '16px', marginTop: '16px', padding: '12px 16px', 
+                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
+                alignItems: 'center', flexShrink: 0
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>입금 체크:</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={shippingFeePaid}
+                    onChange={(e) => setShippingFeePaid(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: '#006b5c', cursor: 'pointer' }}
+                  />
+                  <span style={{ 
+                    fontSize: '13px', fontWeight: 700, 
+                    color: shippingFeePaid ? '#006b5c' : '#94a3b8',
+                    transition: 'color 0.2s'
+                  }}>
+                    🚚 배송비 완료
+                  </span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={isKeep}
+                    onChange={(e) => setIsKeep(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: '#7c3aed', cursor: 'pointer' }}
+                  />
+                  <span style={{ 
+                    fontSize: '13px', fontWeight: 700, 
+                    color: isKeep ? '#7c3aed' : '#94a3b8',
+                    transition: 'color 0.2s'
+                  }}>
+                    📦 Keep
+                  </span>
+                </label>
+              </div>
+
               {/* 정산서 액션 버튼 */}
-              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   onClick={handleBulkCompleteFinance}
-                  disabled={loading}
+                  disabled={loading || (!shippingFeePaid && !isKeep)}
                   style={{
-                    flex: 0.8, padding: '12px 8px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                    flex: 0.8, padding: '12px 8px', 
+                    background: (shippingFeePaid || isKeep) ? '#006b5c' : '#f1f5f9', 
+                    color: (shippingFeePaid || isKeep) ? '#ffffff' : '#94a3b8', 
+                    border: (shippingFeePaid || isKeep) ? 'none' : '1px solid #cbd5e1', 
+                    borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                    cursor: (loading || (!shippingFeePaid && !isKeep)) ? 'not-allowed' : 'pointer', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    transition: 'all 0.2s'
                   }}
-                  title="입금 완료 처리"
+                  title="배송비 완료 또는 Keep을 체크한 후 입금 완료 처리"
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>payments</span>
                   입금 완료

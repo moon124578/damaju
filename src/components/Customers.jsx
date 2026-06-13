@@ -56,6 +56,18 @@ export default function Customers({ onDataChange }) {
     is_blacklist: false,
   });
 
+  // 닉네임 중복 확인 상태
+  const [nickCheckStatus, setNickCheckStatus] = useState('idle'); // 'idle' | 'checking' | 'ok' | 'duplicate'
+  const [nickCheckedValue, setNickCheckedValue] = useState(''); // 마지막으로 체크한 닉네임
+  const [similarNicknames, setSimilarNicknames] = useState([]); // 유사/중복 닉네임 목록
+
+  // 중복 회원 정리 모달 관련 상태
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState([]);
+  const [selectedMainIds, setSelectedMainIds] = useState({}); // { groupId: mainCustId }
+  const [selectedMergeIds, setSelectedMergeIds] = useState({}); // { groupId: [custId1, custId2, ...] }
+  const [isMerging, setIsMerging] = useState(false);
+
 
   useEffect(() => {
     fetchInitialData();
@@ -200,6 +212,9 @@ export default function Customers({ onDataChange }) {
       address: '',
       is_blacklist: false,
     });
+    setNickCheckStatus('idle');
+    setNickCheckedValue('');
+    setSimilarNicknames([]);
     setIsModalOpen(true);
   };
 
@@ -207,11 +222,226 @@ export default function Customers({ onDataChange }) {
     setIsModalOpen(false);
   };
 
+  // 닉네임 중복 확인
+  const handleCheckDuplicate = () => {
+    const nick = formData.nickname.trim();
+    if (!nick) {
+      alert('닉네임을 입력해주세요.');
+      return;
+    }
+    setNickCheckStatus('checking');
+
+    // 정확히 일치하는 닉네임 찾기
+    const exactMatch = customers.filter(c => c.nickname && c.nickname === nick);
+    // 포함되거나 유사한 닉네임 찾기 (수정 중인 고객 제외)
+    const similar = customers.filter(c => {
+      if (selectedCustomer && c.customer_id === selectedCustomer.customer_id) return false;
+      if (!c.nickname) return false;
+      if (c.nickname === nick) return true;
+      // 포함 관계
+      if (c.nickname.includes(nick) || nick.includes(c.nickname)) return true;
+      // 초성 매치
+      if (matchChosung(c.nickname, nick)) return true;
+      return false;
+    });
+
+    setSimilarNicknames(similar);
+    setNickCheckedValue(nick);
+
+    if (exactMatch.length > 0 && !(selectedCustomer && exactMatch.every(c => c.customer_id === selectedCustomer.customer_id))) {
+      setNickCheckStatus('duplicate');
+    } else {
+      setNickCheckStatus('ok');
+    }
+  };
+
+  // 중복 예상 그룹을 찾아내는 헬퍼 함수
+  const findDuplicateGroups = (custs) => {
+    const groups = [];
+    const visited = new Set();
+
+    for (let i = 0; i < custs.length; i++) {
+      const c1 = custs[i];
+      if (!c1.nickname || !c1.nickname.trim()) continue;
+      if (visited.has(c1.customer_id)) continue;
+
+      const groupMembers = [c1];
+      const n1 = c1.nickname.replace(/\s+/g, '').toLowerCase();
+
+      for (let j = 0; j < custs.length; j++) {
+        if (i === j) continue;
+        const c2 = custs[j];
+        if (!c2.nickname || !c2.nickname.trim()) continue;
+        if (visited.has(c2.customer_id)) continue;
+
+        const n2 = c2.nickname.replace(/\s+/g, '').toLowerCase();
+
+        let isSimilar = false;
+        if (n1 === n2) {
+          isSimilar = true;
+        } else if (n1.includes(n2) || n2.includes(n1)) {
+          const lenDiff = Math.abs(n1.length - n2.length);
+          if (Math.min(n1.length, n2.length) >= 2 && lenDiff <= 2) {
+            isSimilar = true;
+          }
+        } else if (matchChosung(c1.nickname, c2.nickname) || matchChosung(c2.nickname, c1.nickname)) {
+          isSimilar = true;
+        }
+
+        if (isSimilar) {
+          groupMembers.push(c2);
+        }
+      }
+
+      if (groupMembers.length > 1) {
+        groupMembers.forEach(m => visited.add(m.customer_id));
+        const groupId = `group_${c1.customer_id}`;
+        groups.push({
+          id: groupId,
+          representativeName: c1.nickname,
+          members: groupMembers
+        });
+      }
+    }
+
+    return groups;
+  };
+
+  const openMergeModal = () => {
+    const groups = findDuplicateGroups(customers);
+    setDuplicateGroups(groups);
+    
+    const initialMains = {};
+    const initialMerges = {};
+    groups.forEach(g => {
+      initialMains[g.id] = g.members[0].customer_id;
+      initialMerges[g.id] = g.members.slice(1).map(m => m.customer_id);
+    });
+    
+    setSelectedMainIds(initialMains);
+    setSelectedMergeIds(initialMerges);
+    setIsMergeModalOpen(true);
+  };
+
+  const handleExecuteMerge = async (groupId) => {
+    const mainId = selectedMainIds[groupId];
+    const mergeIds = selectedMergeIds[groupId] || [];
+
+    if (!mainId) {
+      alert('유지할 대표 회원을 선택해주세요.');
+      return;
+    }
+    if (mergeIds.length === 0) {
+      alert('병합할 대상을 하나 이상 체크해주세요.');
+      return;
+    }
+
+    const mainCust = customers.find(c => c.customer_id === mainId);
+    const targetNames = mergeIds.map(id => {
+      const c = customers.find(x => x.customer_id === id);
+      return c ? `${c.nickname || c.name}(ID: ${c.customer_id})` : id;
+    }).join(', ');
+
+    if (!window.confirm(`[${targetNames}] 회원을 [${mainCust.nickname || mainCust.name}] 회원으로 병합하시겠습니까?\n병합된 회원의 주문 내역은 이전되고, 해당 회원은 영구 삭제됩니다.`)) {
+      return;
+    }
+
+    setIsMerging(true);
+    try {
+      // 1. 주문 테이블의 customer_id 업데이트
+      const { error: ordErr } = await supabase
+        .from('orders')
+        .update({ customer_id: mainId })
+        .in('customer_id', mergeIds);
+
+      if (ordErr) throw ordErr;
+
+      // 2. 비어 있는 대표 고객 정보 채우기
+      let updatedPhone = mainCust.phone;
+      let updatedAddress = mainCust.address;
+      let updatedName = mainCust.name;
+
+      mergeIds.forEach(id => {
+        const c = customers.find(x => x.customer_id === id);
+        if (c) {
+          if ((!updatedPhone || updatedPhone === '010-0000-0000') && c.phone && c.phone !== '010-0000-0000') {
+            updatedPhone = c.phone;
+          }
+          if (!updatedAddress && c.address) {
+            updatedAddress = c.address;
+          }
+          if (updatedName === '이름 미입력' || updatedName === updatedPhone) {
+            if (c.name && c.name !== '이름 미입력') updatedName = c.name;
+          }
+        }
+      });
+
+      const { error: custUpdateErr } = await supabase
+        .from('customers')
+        .update({
+          phone: updatedPhone,
+          address: updatedAddress,
+          name: updatedName
+        })
+        .eq('customer_id', mainId);
+
+      if (custUpdateErr) throw custUpdateErr;
+
+      // 3. 병합 대상 고객들 삭제
+      const { error: delErr } = await supabase
+        .from('customers')
+        .delete()
+        .in('customer_id', mergeIds);
+
+      if (delErr) throw delErr;
+
+      alert('성공적으로 병합되었습니다.');
+
+      await reloadData();
+      onDataChange();
+
+      const newGroups = findDuplicateGroups(customers.filter(c => !mergeIds.includes(c.customer_id)));
+      setDuplicateGroups(newGroups);
+
+      const newMains = { ...selectedMainIds };
+      const newMerges = { ...selectedMergeIds };
+      delete newMains[groupId];
+      delete newMerges[groupId];
+      
+      newGroups.forEach(g => {
+        if (!newMains[g.id]) {
+          newMains[g.id] = g.members[0].customer_id;
+          newMerges[g.id] = g.members.slice(1).map(m => m.customer_id);
+        }
+      });
+      setSelectedMainIds(newMains);
+      setSelectedMergeIds(newMerges);
+
+      if (newGroups.length === 0) {
+        alert('더 이상 발견된 중복 회원이 없습니다.');
+        setIsMergeModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Error merging customers:', err);
+      alert('병합 처리 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() && !formData.nickname.trim()) {
       alert('닉네임 또는 고객명 중 최소 하나는 입력해야 합니다.');
       return;
+    }
+
+    // 신규 등록 시 닉네임 중복 확인 필수
+    if (!selectedCustomer && formData.nickname.trim()) {
+      if (nickCheckStatus !== 'ok' || nickCheckedValue !== formData.nickname.trim()) {
+        alert('닉네임 중복 확인을 먼저 진행해주세요.');
+        return;
+      }
     }
 
     const finalName = formData.name.trim() || formData.nickname.trim();
@@ -366,9 +596,14 @@ export default function Customers({ onDataChange }) {
             유입 회원의 누적 실적 조회 및 관리를 지원합니다. (페이지당 {itemsPerPage}명씩 노출)
           </p>
         </div>
-        <button className="btn btn-primary" onClick={openAddModal} style={{ padding: '8px 16px', fontSize: '13px' }}>
-          ➕ 신규 회원 추가
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-secondary" onClick={openMergeModal} style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            🔍 중복 회원 정리
+          </button>
+          <button className="btn btn-primary" onClick={openAddModal} style={{ padding: '8px 16px', fontSize: '13px' }}>
+            ➕ 신규 회원 추가
+          </button>
+        </div>
       </div>
  
       {/* 필터 바 */}
@@ -613,12 +848,76 @@ export default function Customers({ onDataChange }) {
               <div className="modal-body">
                 <div className="form-group">
                   <label>닉네임</label>
-                  <input
-                    type="text"
-                    className="input-control"
-                    value={formData.nickname}
-                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-                  />
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="text"
+                      className="input-control"
+                      value={formData.nickname}
+                      onChange={(e) => {
+                        setFormData({ ...formData, nickname: e.target.value });
+                        // 닉네임 변경 시 체크 상태 초기화
+                        if (nickCheckedValue !== e.target.value.trim()) {
+                          setNickCheckStatus('idle');
+                          setSimilarNicknames([]);
+                        }
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    {!selectedCustomer && (
+                      <button
+                        type="button"
+                        onClick={handleCheckDuplicate}
+                        style={{
+                          padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
+                          border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                          background: nickCheckStatus === 'ok' ? '#006b5c' : nickCheckStatus === 'duplicate' ? '#dc2626' : '#006688',
+                          color: '#ffffff', transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {nickCheckStatus === 'ok' ? '✓ 사용가능' : nickCheckStatus === 'duplicate' ? '✗ 중복' : '중복확인'}
+                      </button>
+                    )}
+                  </div>
+                  {/* 중복/유사 닉네임 결과 표시 */}
+                  {nickCheckStatus === 'duplicate' && (
+                    <div style={{ marginTop: '8px', padding: '10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px' }}>
+                      <p style={{ fontSize: '12px', color: '#dc2626', fontWeight: 700, margin: '0 0 6px 0' }}>
+                        ⚠️ 동일한 닉네임이 존재합니다!
+                      </p>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {similarNicknames.map(c => (
+                          <li key={c.customer_id} style={{ display: 'flex', padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
+                            <div>
+                              <span style={{ fontWeight: 700, color: '#151c27' }}>{c.nickname || '-'}</span>
+                              <span style={{ color: '#6b7280', marginLeft: '6px' }}>({c.name})</span>
+                              <span style={{ color: '#9ca3af', marginLeft: '6px', fontSize: '11px' }}>{formatPhoneNumber(c.phone)}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {nickCheckStatus === 'ok' && similarNicknames.length > 0 && (
+                    <div style={{ marginTop: '8px', padding: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px' }}>
+                      <p style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700, margin: '0 0 6px 0' }}>
+                        ✅ 사용 가능한 닉네임입니다. 유사한 닉네임이 있습니다:
+                      </p>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {similarNicknames.map(c => (
+                          <li key={c.customer_id} style={{ display: 'flex', padding: '6px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '12px' }}>
+                            <div>
+                              <span style={{ fontWeight: 700, color: '#151c27' }}>{c.nickname || '-'}</span>
+                              <span style={{ color: '#6b7280', marginLeft: '6px' }}>({c.name})</span>
+                              <span style={{ color: '#9ca3af', marginLeft: '6px', fontSize: '11px' }}>{formatPhoneNumber(c.phone)}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {nickCheckStatus === 'ok' && similarNicknames.length === 0 && (
+                    <p style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px', fontWeight: 600 }}>✅ 사용 가능한 닉네임입니다.</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>고객명</label>
@@ -669,6 +968,144 @@ export default function Customers({ onDataChange }) {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 중복 회원 정리 모달 */}
+      {isMergeModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsMergeModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '750px', maxWidth: '95%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">🔍 중복 회원 정리</h3>
+              <button
+                onClick={() => setIsMergeModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '18px', cursor: 'pointer' }}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '20px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.5' }}>
+                닉네임이 정확히 일치하거나 유사하여 중복으로 의심되는 회원 그룹들입니다.<br />
+                각 그룹에서 <strong>유지할 대표 회원</strong>을 1명 선택하고, <strong>병합하여 삭제할 회원들</strong>을 체크한 뒤 합치기를 진행해 주세요.
+              </p>
+
+              {duplicateGroups.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  🎉 분석 결과, 중복이 의심되는 회원이 없습니다!
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {duplicateGroups.map((group) => {
+                    const mainId = selectedMainIds[group.id];
+                    const mergeIds = selectedMergeIds[group.id] || [];
+
+                    return (
+                      <div key={group.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px', background: '#f9fafb' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #e5e7eb', paddingBottom: '8px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '14px', color: '#006688' }}>
+                            그룹: {group.representativeName} (매칭 회원: {group.members.length}명)
+                          </span>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => handleExecuteMerge(group.id)}
+                            disabled={isMerging || mergeIds.length === 0}
+                            style={{ padding: '6px 12px', fontSize: '12px', background: '#7c3aed', borderColor: '#7c3aed', cursor: 'pointer' }}
+                          >
+                            {isMerging ? '병합 중...' : '이 그룹 합치기'}
+                          </button>
+                        </div>
+
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="custom-table" style={{ fontSize: '12px', background: '#ffffff', minWidth: '550px' }}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: '80px', textAlign: 'center' }}>유지 (대표)</th>
+                                <th style={{ width: '80px', textAlign: 'center' }}>병합 (삭제)</th>
+                                <th>ID</th>
+                                <th>닉네임</th>
+                                <th>고객명</th>
+                                <th>연락처</th>
+                                <th style={{ textAlign: 'center' }}>주문횟수</th>
+                                <th>최근주문일</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.members.map((member) => {
+                                const isMain = mainId === member.customer_id;
+                                const isCheckedForMerge = mergeIds.includes(member.customer_id);
+
+                                return (
+                                  <tr key={member.customer_id} style={{ background: isMain ? '#f0fdf4' : isCheckedForMerge ? '#fef2f2' : 'inherit' }}>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <input
+                                        type="radio"
+                                        name={`main_${group.id}`}
+                                        checked={isMain}
+                                        onChange={() => {
+                                          setSelectedMainIds({
+                                            ...selectedMainIds,
+                                            [group.id]: member.customer_id
+                                          });
+                                          const nextMerges = group.members
+                                            .filter(m => m.customer_id !== member.customer_id)
+                                            .map(m => m.customer_id);
+                                          setSelectedMergeIds({
+                                            ...selectedMergeIds,
+                                            [group.id]: nextMerges
+                                          });
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isCheckedForMerge}
+                                        disabled={isMain}
+                                        onChange={(e) => {
+                                          let nextMerges = [...mergeIds];
+                                          if (e.target.checked) {
+                                            if (!nextMerges.includes(member.customer_id)) {
+                                              nextMerges.push(member.customer_id);
+                                            }
+                                          } else {
+                                            nextMerges = nextMerges.filter(id => id !== member.customer_id);
+                                          }
+                                          setSelectedMergeIds({
+                                            ...selectedMergeIds,
+                                            [group.id]: nextMerges
+                                          });
+                                        }}
+                                        style={{ cursor: isMain ? 'not-allowed' : 'pointer' }}
+                                      />
+                                    </td>
+                                    <td>{member.customer_id}</td>
+                                    <td style={{ fontWeight: 'bold' }}>{member.nickname || '-'}</td>
+                                    <td>{member.name}</td>
+                                    <td>{formatPhoneNumber(member.phone)}</td>
+                                    <td style={{ textAlign: 'center' }}>{member.order_count}</td>
+                                    <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                      {member.last_order_date ? new Date(member.last_order_date).toLocaleDateString() : '-'}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsMergeModalOpen(false)}>
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}

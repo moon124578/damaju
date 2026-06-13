@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import * as XLSX from 'xlsx';
+import { matchChosung } from '../hangulSearch';
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
@@ -27,6 +28,18 @@ export default function Shipping({ onDataChange }) {
   const [shippingRows, setShippingRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIndices, setSelectedIndices] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'shippingFee' | 'keep' | 'none'
+
+  // 고객 정보 수정 모달 상태
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editCustomerId, setEditCustomerId] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    nickname: '',
+    name: '',
+    phone: '',
+    address: '',
+  });
 
   useEffect(() => {
     fetchShippingData();
@@ -48,6 +61,8 @@ export default function Shipping({ onDataChange }) {
           total_price,
           order_status,
           invoice_id,
+          shipping_fee_paid,
+          is_keep,
           customers (name, nickname, phone, address)
         `)
         .eq('order_status', '입금 완료')
@@ -61,6 +76,7 @@ export default function Shipping({ onDataChange }) {
         const cid = o.customer_id;
         if (!customerMap[cid]) {
           customerMap[cid] = {
+            customer_id: cid,
             customer: o.customers || { name: '알 수 없음', nickname: '', phone: '', address: '' },
             order_date: o.order_date,
             order_status: o.order_status,
@@ -70,22 +86,26 @@ export default function Shipping({ onDataChange }) {
         customerMap[cid].items.push(o);
       });
 
-      // 각 고객별 총 갯수 합산
+      // 각 고객별 총 갯수 합산 + 배송비/Keep 플래그 집계
       const rows = Object.values(customerMap).map(group => {
         const orderIds = [];
         let totalQuantity = 0;
         const dateQuantityMap = {};
+        let hasShippingFeePaid = false;
+        let hasKeep = false;
 
         group.items.forEach(item => {
           orderIds.push(item.order_id);
           totalQuantity += item.quantity;
-
           const dateObj = new Date(item.order_date);
           const day = dateObj.getDate();
           if (!dateQuantityMap[day]) {
             dateQuantityMap[day] = 0;
           }
           dateQuantityMap[day] += item.quantity;
+
+          if (item.shipping_fee_paid) hasShippingFeePaid = true;
+          if (item.is_keep) hasKeep = true;
         });
 
         const dateQuantityArray = Object.keys(dateQuantityMap)
@@ -93,12 +113,15 @@ export default function Shipping({ onDataChange }) {
           .map(day => `${day}일 ${dateQuantityMap[day]}개`);
 
         return {
+          customer_id: group.customer_id,
           customer: group.customer,
           order_date: group.order_date,
           order_status: group.order_status,
           totalQuantity,
           dateQuantityArray,
-          order_ids: orderIds
+          order_ids: orderIds,
+          hasShippingFeePaid,
+          hasKeep
         };
       });
 
@@ -270,6 +293,70 @@ export default function Shipping({ onDataChange }) {
     window.print();
   };
 
+  // 배송비완료/Keep 토글 핸들러
+  const handleToggleFlag = async (orderIds, field, currentValue, customerName) => {
+    const label = field === 'shipping_fee_paid' ? '배송비 완료' : 'Keep';
+    const nextValue = !currentValue;
+    const action = nextValue ? '설정' : '해제';
+    if (!window.confirm(`${customerName} 고객의 ${label}을(를) ${action}하시겠습니까?`)) return;
+    setLoading(true);
+    try {
+      const updatePayload = {};
+      updatePayload[field] = nextValue;
+      const { error } = await supabase
+        .from('orders')
+        .update(updatePayload)
+        .in('order_id', orderIds);
+      if (error) throw error;
+      await fetchShippingData();
+      if (onDataChange) onDataChange();
+    } catch (err) {
+      console.error(err);
+      alert('상태 변경 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 닉네임 클릭 → 고객 정보 수정 모달 열기
+  const openEditModal = (row) => {
+    setEditCustomerId(row.customer_id);
+    setEditFormData({
+      nickname: row.customer.nickname || '',
+      name: row.customer.name || '',
+      phone: row.customer.phone || '',
+      address: row.customer.address || '',
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleSaveCustomer = async () => {
+    if (!editCustomerId) return;
+    if (!editFormData.name.trim() && !editFormData.nickname.trim()) {
+      alert('닉네임 또는 고객명 중 최소 하나는 입력해야 합니다.');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({
+          nickname: editFormData.nickname.trim() || null,
+          name: editFormData.name.trim() || editFormData.nickname.trim(),
+          phone: formatPhoneNumber(editFormData.phone.trim()),
+          address: editFormData.address.trim() || null,
+        })
+        .eq('customer_id', editCustomerId);
+      if (error) throw error;
+      setEditModalOpen(false);
+      await fetchShippingData();
+      if (onDataChange) onDataChange();
+      alert('회원 정보가 수정되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div style={{ fontFamily: "'Hanken Grotesk', 'Malgun Gothic', sans-serif", height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       
@@ -282,6 +369,21 @@ export default function Shipping({ onDataChange }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* 범례 표시 */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginRight: '8px' }}>
+            <span style={{ 
+              fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
+              background: 'rgba(0, 107, 92, 0.1)', color: '#006b5c', border: '1px solid rgba(0, 107, 92, 0.2)'
+            }}>
+              🚚 배송비완료
+            </span>
+            <span style={{ 
+              fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
+              background: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.2)'
+            }}>
+              📦 Keep
+            </span>
+          </div>
           <button
             onClick={handleBulkRevertPayment}
             disabled={selectedIndices.length === 0}
@@ -336,6 +438,66 @@ export default function Shipping({ onDataChange }) {
         </div>
       </div>
 
+      {/* 검색창 + 필터 탭 */}
+      <div className="no-print" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          type="text"
+          placeholder="이름, 닉네임, 연락처로 검색 (초성 지원)..."
+          value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setSelectedIndices([]); }}
+          style={{
+            flex: 1, maxWidth: '300px', padding: '10px 12px',
+            border: '1px solid var(--border-color)', borderRadius: '8px',
+            fontSize: '13px', outline: 'none', background: 'var(--bg-card)',
+            color: 'var(--text-primary)'
+          }}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => { setSearchQuery(''); setSelectedIndices([]); }}
+            style={{
+              padding: '8px 12px', background: 'transparent', border: '1px solid var(--border-color)',
+              borderRadius: '8px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-muted)',
+              display: 'flex', alignItems: 'center', gap: '4px'
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+          </button>
+        )}
+
+        {/* 구분 필터 탭 */}
+        <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
+          {[
+            { key: 'all', label: '전체' },
+            { key: 'shippingFee', label: '🚚 배송비완료' },
+            { key: 'keep', label: '📦 Keep' },
+            { key: 'none', label: '미설정' },
+          ].map(tab => {
+            const isActive = statusFilter === tab.key;
+            let activeBg = '#006688';
+            let activeColor = '#ffffff';
+            if (tab.key === 'shippingFee') { activeBg = '#006b5c'; }
+            if (tab.key === 'keep') { activeBg = '#7c3aed'; }
+            if (tab.key === 'none') { activeBg = '#64748b'; }
+            return (
+              <button
+                key={tab.key}
+                onClick={() => { setStatusFilter(tab.key); setSelectedIndices([]); }}
+                style={{
+                  padding: '6px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
+                  border: isActive ? 'none' : '1px solid var(--border-color)',
+                  background: isActive ? activeBg : 'transparent',
+                  color: isActive ? activeColor : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.15s ease'
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 출력 전용 초경량 컴팩트 스타일 인젝션 */}
       <style>{`
         @media print {
@@ -380,21 +542,46 @@ export default function Shipping({ onDataChange }) {
 
       {/* 배송 리스트 영역 (테이블 구조로 세련되고 촘촘하게 구성) */}
       <div id="print-area" style={{ flex: 1, overflowX: 'auto' }}>
-        {loading && shippingRows.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>로딩 중...</div>
-        ) : shippingRows.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>
-            입금 완료 상태의 배송 대상 주문이 없습니다.
-          </div>
-        ) : (
+        {(() => {
+          const filteredRows = shippingRows.filter(row => {
+            // 검색 필터
+            if (searchQuery) {
+              const { customer } = row;
+              const nameMatch = matchChosung(customer.name, searchQuery);
+              const nickMatch = customer.nickname && matchChosung(customer.nickname, searchQuery);
+              const phoneMatch = customer.phone && customer.phone.includes(searchQuery);
+              if (!nameMatch && !nickMatch && !phoneMatch) return false;
+            }
+            // 상태 필터
+            if (statusFilter === 'shippingFee' && !row.hasShippingFeePaid) return false;
+            if (statusFilter === 'keep' && !row.hasKeep) return false;
+            if (statusFilter === 'none' && (row.hasShippingFeePaid || row.hasKeep)) return false;
+            return true;
+          });
+          
+          if (loading && shippingRows.length === 0) return (
+            <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>로딩 중...</div>
+          );
+          if (filteredRows.length === 0) return (
+            <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>
+              {searchQuery ? '검색 결과가 없습니다.' : '입금 완료 상태의 배송 대상 주문이 없습니다.'}
+            </div>
+          );
+          return (
           <table className="shipping-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
             <thead>
               <tr style={{ background: 'var(--border-color)', borderBottom: '2px solid var(--border-color)' }}>
                 <th className="no-print" style={{ width: '40px', padding: '10px 12px', textAlign: 'center' }}>
                   <input
                     type="checkbox"
-                    checked={selectedIndices.length === shippingRows.length && shippingRows.length > 0}
-                    onChange={handleToggleSelectAll}
+                    checked={selectedIndices.length === filteredRows.length && filteredRows.length > 0}
+                    onChange={() => {
+                      if (selectedIndices.length === filteredRows.length) {
+                        setSelectedIndices([]);
+                      } else {
+                        setSelectedIndices(filteredRows.map((_, idx) => idx));
+                      }
+                    }}
                     style={{ cursor: 'pointer' }}
                   />
                 </th>
@@ -403,16 +590,32 @@ export default function Shipping({ onDataChange }) {
                 <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600 }}>주소</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '120px' }}>일자별 갯수</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '70px' }}>총 갯수</th>
-                <th className="no-print" style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '150px' }}>관리</th>
+                <th className="no-print" style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, width: '230px' }}>관리</th>
               </tr>
             </thead>
             <tbody>
-              {shippingRows.map((row, index) => {
-                const { customer, order_ids, totalQuantity, order_status } = row;
+              {filteredRows.map((row, index) => {
+                const { customer, order_ids, totalQuantity, order_status, hasShippingFeePaid, hasKeep } = row;
                 const isSelected = selectedIndices.includes(index);
 
+                // 배송비완료/Keep 상태에 따른 행 배경색 결정
+                let rowBg = 'transparent';
+                let rowLeftBorder = 'none';
+                if (isSelected) {
+                  rowBg = 'rgba(0, 107, 92, 0.04)';
+                } else if (hasShippingFeePaid && hasKeep) {
+                  rowBg = 'linear-gradient(90deg, rgba(0, 107, 92, 0.06) 0%, rgba(124, 58, 237, 0.06) 100%)';
+                  rowLeftBorder = '3px solid #7c3aed';
+                } else if (hasKeep) {
+                  rowBg = 'rgba(124, 58, 237, 0.05)';
+                  rowLeftBorder = '3px solid #7c3aed';
+                } else if (hasShippingFeePaid) {
+                  rowBg = 'rgba(0, 107, 92, 0.05)';
+                  rowLeftBorder = '3px solid #006b5c';
+                }
+
                 return (
-                  <tr key={index} style={{ borderBottom: '1px solid var(--border-color)', background: isSelected ? 'rgba(0, 107, 92, 0.04)' : 'transparent' }}>
+                  <tr key={index} style={{ borderBottom: '1px solid var(--border-color)', background: rowBg.includes('gradient') ? undefined : rowBg, backgroundImage: rowBg.includes('gradient') ? rowBg : undefined, borderLeft: rowLeftBorder }}>
                     <td className="no-print" style={{ padding: '8px 12px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
@@ -422,8 +625,12 @@ export default function Shipping({ onDataChange }) {
                       />
                     </td>
                     
-                    {/* 1. 닉네임 [이름] */}
-                    <td style={{ padding: '8px 12px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {/* 1. 닉네임 [이름] - 클릭 시 고객 정보 편집 */}
+                    <td 
+                      style={{ padding: '8px 12px', fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer', color: 'var(--color-blue, #006688)' }}
+                      onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
+                      title="클릭하여 고객 정보 수정"
+                    >
                       {customer.nickname ? `[${customer.nickname}] ` : ''}{customer.name}
                     </td>
 
@@ -457,14 +664,33 @@ export default function Shipping({ onDataChange }) {
 
                     {/* 5. 액션 관리 (프린트 비노출) */}
                     <td className="no-print" style={{ padding: '8px 12px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <span style={{
-                          fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px',
-                          background: 'rgba(0, 107, 92, 0.1)',
-                          color: '#006b5c'
-                        }}>
-                          {order_status}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => handleToggleFlag(order_ids, 'shipping_fee_paid', hasShippingFeePaid, customer.name)}
+                          style={{
+                            padding: '3px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+                            border: hasShippingFeePaid ? '1px solid #006b5c' : '1px dashed #94a3b8',
+                            background: hasShippingFeePaid ? 'rgba(0, 107, 92, 0.12)' : 'transparent',
+                            color: hasShippingFeePaid ? '#006b5c' : '#94a3b8',
+                            cursor: 'pointer', transition: 'all 0.15s ease'
+                          }}
+                          title={hasShippingFeePaid ? '배송비 완료 해제' : '배송비 완료 설정'}
+                        >
+                          🚚 배송비 {hasShippingFeePaid ? '✓' : ''}
+                        </button>
+                        <button
+                          onClick={() => handleToggleFlag(order_ids, 'is_keep', hasKeep, customer.name)}
+                          style={{
+                            padding: '3px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+                            border: hasKeep ? '1px solid #7c3aed' : '1px dashed #94a3b8',
+                            background: hasKeep ? 'rgba(124, 58, 237, 0.12)' : 'transparent',
+                            color: hasKeep ? '#7c3aed' : '#94a3b8',
+                            cursor: 'pointer', transition: 'all 0.15s ease'
+                          }}
+                          title={hasKeep ? 'Keep 해제' : 'Keep 설정'}
+                        >
+                          📦 Keep {hasKeep ? '✓' : ''}
+                        </button>
                         <button
                           onClick={() => handleUpdateStatus(order_ids, '배송 완료', `${customer.name} 고객님의 품목들을 배송 완료 처리하시겠습니까?`)}
                           style={{
@@ -474,7 +700,7 @@ export default function Shipping({ onDataChange }) {
                           }}
                         >
                           <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>local_shipping</span>
-                          배송 완료
+                          배송
                         </button>
                       </div>
                     </td>
@@ -483,8 +709,125 @@ export default function Shipping({ onDataChange }) {
               })}
             </tbody>
           </table>
-        )}
+          );
+        })()}
       </div>
+
+      {/* 고객 정보 수정 모달 */}
+      {editModalOpen && (
+        <div
+          onClick={() => setEditModalOpen(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card, #ffffff)', borderRadius: '12px', width: '400px', maxWidth: '90vw',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden'
+            }}
+          >
+            {/* 헤더 */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '16px 20px', borderBottom: '1px solid var(--border-color, #e2e8f0)'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary, #151c27)' }}>고객 정보 수정</h3>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--text-muted, #6d7980)', lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* 본문 */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #6d7980)', marginBottom: '4px', display: 'block' }}>닉네임</label>
+                <input
+                  type="text"
+                  value={editFormData.nickname}
+                  onChange={(e) => setEditFormData({ ...editFormData, nickname: e.target.value })}
+                  style={{
+                    width: '100%', padding: '10px 12px', border: '1px solid var(--border-color, #bcc8d1)',
+                    borderRadius: '8px', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
+                    background: 'var(--bg-card, #ffffff)', color: 'var(--text-primary, #151c27)'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #6d7980)', marginBottom: '4px', display: 'block' }}>고객명</label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  style={{
+                    width: '100%', padding: '10px 12px', border: '1px solid var(--border-color, #bcc8d1)',
+                    borderRadius: '8px', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
+                    background: 'var(--bg-card, #ffffff)', color: 'var(--text-primary, #151c27)'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #6d7980)', marginBottom: '4px', display: 'block' }}>연락처</label>
+                <input
+                  type="text"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  style={{
+                    width: '100%', padding: '10px 12px', border: '1px solid var(--border-color, #bcc8d1)',
+                    borderRadius: '8px', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
+                    background: 'var(--bg-card, #ffffff)', color: 'var(--text-primary, #151c27)'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted, #6d7980)', marginBottom: '4px', display: 'block' }}>배송지 주소</label>
+                <input
+                  type="text"
+                  value={editFormData.address}
+                  onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                  style={{
+                    width: '100%', padding: '10px 12px', border: '1px solid var(--border-color, #bcc8d1)',
+                    borderRadius: '8px', fontSize: '13px', outline: 'none', boxSizing: 'border-box',
+                    background: 'var(--bg-card, #ffffff)', color: 'var(--text-primary, #151c27)'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 푸터 */}
+            <div style={{
+              display: 'flex', justifyContent: 'flex-end', gap: '8px',
+              padding: '16px 20px', borderTop: '1px solid var(--border-color, #e2e8f0)'
+            }}>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                style={{
+                  padding: '10px 18px', background: 'transparent', border: '1px solid var(--border-color, #bcc8d1)',
+                  borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  color: 'var(--text-muted, #6d7980)'
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveCustomer}
+                style={{
+                  padding: '10px 18px', background: '#006688', color: '#ffffff',
+                  border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -29,20 +29,19 @@ export default function Orders({ onDataChange }) {
   const [editStatus, setEditStatus] = useState('');
 
 
-  // 1. 주문 폼 상태
   const [custQuery, setCustQuery] = useState('');
   const [custSuggestions, setCustSuggestions] = useState([]);
   const [activeCustIdx, setActiveCustIdx] = useState(-1);
   const [showCustDropdown, setShowCustDropdown] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  const [prodQuery, setProdQuery] = useState('');
-  const [prodSuggestions, setProdSuggestions] = useState([]);
-  const [activeProdIdx, setActiveProdIdx] = useState(-1);
-  const [showProdDropdown, setShowProdDropdown] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  // 다중 상품 입력 행 (orderLines)
+  const DEFAULT_PRODUCTS = ['0.3', '0.5', '0.7', '0.8', '1.0'];
+  const makeDefaultLines = () => DEFAULT_PRODUCTS.map(name => ({ productName: name, quantity: 0 }));
+  const [orderLines, setOrderLines] = useState(makeDefaultLines);
+  const [showOrderLines, setShowOrderLines] = useState(false);
+  const [activeLineDropdown, setActiveLineDropdown] = useState(-1); // 어떤 행의 상품 드롭다운이 열려있는지
 
-  const [qty, setQty] = useState(1);
   const [orderStaffId, setOrderStaffId] = useState(() => {
     return localStorage.getItem('last_selected_staff_id') || '';
   });
@@ -163,101 +162,87 @@ export default function Orders({ onDataChange }) {
     setSelectedCustomer(cust);
     setCustQuery(cust.nickname || cust.name);
     setShowCustDropdown(false);
-  };
-
-  // 상품 검색 자동완성 핸들러
-  const handleProdChange = (e) => {
-    const val = e.target.value;
-    setProdQuery(val);
-    setSelectedProduct(null);
-    if (val.trim()) {
-      const matches = products.filter((p) =>
-        matchChosung(p.name, val)
-      );
-      setProdSuggestions(matches);
-      setShowProdDropdown(true);
-      setActiveProdIdx(-1);
-    } else {
-      setProdSuggestions([]);
-      setShowProdDropdown(false);
+    // 고객 선택 시 상품 행 표시
+    if (!showOrderLines) {
+      setShowOrderLines(true);
+      setOrderLines(makeDefaultLines());
     }
   };
 
-  const handleProdKeyDown = (e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveProdIdx((prev) => Math.min(prev + 1, prodSuggestions.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveProdIdx((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (activeProdIdx >= 0 && activeProdIdx < prodSuggestions.length) {
-        selectProd(prodSuggestions[activeProdIdx]);
-      }
-    } else if (e.key === 'Escape') {
-      setShowProdDropdown(false);
-    }
+  // 상품 행 추가
+  const handleAddLine = () => {
+    setOrderLines([...orderLines, { productName: '', quantity: 0 }]);
   };
 
-  const selectProd = (prod) => {
-    setSelectedProduct(prod);
-    setProdQuery(prod.name);
-    setShowProdDropdown(false);
+  // 상품 행 삭제
+  const handleRemoveLine = (index) => {
+    if (orderLines.length <= 1) return;
+    setOrderLines(orderLines.filter((_, i) => i !== index));
   };
 
-  // 장바구니 담기 (주문 추가)
+  // 상품 행 값 변경
+  const handleLineChange = (index, field, value) => {
+    const newLines = [...orderLines];
+    newLines[index] = { ...newLines[index], [field]: value };
+    setOrderLines(newLines);
+  };
+
+  // 장바구니 담기 (주문 추가) - 다중 상품 일괄 추가
   const handleAddToCart = (e) => {
     e.preventDefault();
-    if (!custQuery.trim() || !prodQuery.trim()) {
-      alert('고객명과 상품명을 입력해주세요.');
+    if (!custQuery.trim()) {
+      alert('고객 닉네임을 입력해주세요.');
       return;
     }
 
     // 고객정보 유효성 검증
     const typedQuery = custQuery.trim();
-    // 닉네임 혹은 이름이 완벽히 일치하거나, 자동완성 포맷 "[닉네임] 이름" 형태인 경우 추출하여 찾음
     let matchCust = customers.find(c => c.nickname === typedQuery || c.name === typedQuery);
-    
     if (!matchCust && typedQuery.startsWith('[') && typedQuery.includes(']')) {
       const closingBracketIdx = typedQuery.indexOf(']');
       const parsedNickname = typedQuery.substring(1, closingBracketIdx).trim();
       matchCust = customers.find(c => c.nickname === parsedNickname);
     }
-
     if (!matchCust) {
       alert('회원정보(고객)에 존재하지 않는 닉네임/이름입니다. 회원정보 탭에서 먼저 고객을 등록해주세요.');
       return;
     }
 
-    // 상품정보 유효성 검증
-    const matchProd = products.find(p => p.name === prodQuery.trim());
-    if (!matchProd) {
-      alert('상품관리에 등록되지 않은 상품명입니다. 정확한 상품명을 입력해주세요.');
+    // 수량이 0보다 큰 행만 필터링
+    const validLines = orderLines.filter(line => line.quantity > 0 && line.productName.trim());
+    if (validLines.length === 0) {
+      alert('수량이 1개 이상인 상품이 없습니다. 수량을 입력해주세요.');
       return;
     }
 
-    const unitPrice = matchProd.selling_price;
     const staffId = orderStaffId ? Number(orderStaffId) : null;
+    const newItems = [];
 
-    const newItem = {
-      id: Date.now() + Math.random(),
-      custQuery: custQuery.trim(),
-      selectedCustomer: matchCust,
-      prodQuery: prodQuery.trim(),
-      selectedProduct: matchProd,
-      quantity: Number(qty),
-      unitPrice,
-      totalPrice: unitPrice * Number(qty),
-      staffId,
-    };
+    for (const line of validLines) {
+      // 상품정보 유효성 검증
+      const matchProd = products.find(p => p.name === line.productName.trim());
+      if (!matchProd) {
+        alert(`상품관리에 등록되지 않은 상품명입니다: ${line.productName}`);
+        return;
+      }
+      const unitPrice = matchProd.selling_price;
+      newItems.push({
+        id: Date.now() + Math.random(),
+        custQuery: typedQuery,
+        selectedCustomer: matchCust,
+        prodQuery: line.productName.trim(),
+        selectedProduct: matchProd,
+        quantity: Number(line.quantity),
+        unitPrice,
+        totalPrice: unitPrice * Number(line.quantity),
+        staffId,
+      });
+    }
 
-    setCartItems([...cartItems, newItem]);
+    setCartItems([...cartItems, ...newItems]);
 
-    // 상품명과 수량만 초기화 (고객 정보 유지)
-    setProdQuery('');
-    setSelectedProduct(null);
-    setQty(1);
+    // 상품 행 초기화 (고객 정보 유지)
+    setOrderLines(makeDefaultLines());
   };
 
   // 장바구니 항목 삭제
@@ -582,123 +567,207 @@ export default function Orders({ onDataChange }) {
               주문 등록
             </h4>
             
-            <form onSubmit={handleAddToCart} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <form onSubmit={handleAddToCart} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
-              {/* 고객 닉네임 입력 */}
-              <div style={{ flex: 2, minWidth: '160px', position: 'relative' }}>
-                <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontFamily: "'JetBrains Mono', monospace" }}>고객 닉네임 입력</label>
-                <input
-                  type="text"
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontFamily: "'Hanken Grotesk', sans-serif", outline: 'none', background: '#ffffff' }}
-                  placeholder="예: 바리"
-                  value={custQuery}
-                  onChange={handleCustChange}
-                  onKeyDown={handleCustKeyDown}
-                  onFocus={() => setShowCustDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowCustDropdown(false), 200)}
-                  required
-                  autoComplete="off"
-                />
-                {showCustDropdown && custSuggestions.length > 0 && (
-                  <div className="autocomplete-dropdown" style={{ width: '100%' }}>
-                    <div style={{ padding: '6px 12px', borderBottom: '1px solid #bcc8d1', background: '#f0f3ff', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: '#6d7980' }}>검색 결과</div>
-                    {custSuggestions.map((cust, idx) => (
-                      <div
-                        key={cust.customer_id}
-                        className={`suggestion-item ${idx === activeCustIdx ? 'active' : ''}`}
-                        onMouseDown={() => selectCust(cust)}
-                        style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}
-                      >
-                        <span style={{ fontWeight: 500 }}>{cust.nickname ? `[${cust.nickname}] ` : ''}{cust.name}</span>
-                        <span style={{ fontSize: '11px', color: '#6d7980' }}>{cust.phone?.slice(-4) || 'CRM'}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* 상단: 고객 닉네임 + 담당 직원 */}
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                {/* 고객 닉네임 입력 */}
+                <div style={{ flex: 2, minWidth: '160px', position: 'relative' }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontFamily: "'JetBrains Mono', monospace" }}>고객 닉네임 입력</label>
+                  <input
+                    type="text"
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontFamily: "'Hanken Grotesk', sans-serif", outline: 'none', background: '#ffffff' }}
+                    placeholder="예: 바리"
+                    value={custQuery}
+                    onChange={handleCustChange}
+                    onKeyDown={handleCustKeyDown}
+                    onFocus={() => setShowCustDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowCustDropdown(false), 200)}
+                    required
+                    autoComplete="off"
+                  />
+                  {showCustDropdown && custSuggestions.length > 0 && (
+                    <div className="autocomplete-dropdown" style={{ width: '100%' }}>
+                      <div style={{ padding: '6px 12px', borderBottom: '1px solid #bcc8d1', background: '#f0f3ff', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: '#6d7980' }}>검색 결과</div>
+                      {custSuggestions.map((cust, idx) => (
+                        <div
+                          key={cust.customer_id}
+                          className={`suggestion-item ${idx === activeCustIdx ? 'active' : ''}`}
+                          onMouseDown={() => selectCust(cust)}
+                          style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}
+                        >
+                          <span style={{ fontWeight: 500 }}>{cust.nickname ? `[${cust.nickname}] ` : ''}{cust.name}</span>
+                          <span style={{ fontSize: '11px', color: '#6d7980' }}>{cust.phone?.slice(-4) || 'CRM'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-              {/* 물품명 입력 */}
-              <div style={{ flex: 3, minWidth: '220px', position: 'relative' }}>
-                <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontFamily: "'JetBrains Mono', monospace" }}>물품명 입력</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ flex: 1, position: 'relative' }}>
-                    <input
-                      type="text"
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontFamily: "'Hanken Grotesk', sans-serif", outline: 'none', background: '#ffffff' }}
-                      placeholder="예: 프리미엄"
-                      value={prodQuery}
-                      onChange={handleProdChange}
-                      onKeyDown={handleProdKeyDown}
-                      onFocus={() => setShowProdDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowProdDropdown(false), 200)}
-                      required
-                      autoComplete="off"
-                    />
-                    {showProdDropdown && prodSuggestions.length > 0 && (
-                      <div className="autocomplete-dropdown" style={{ width: '100%' }}>
-                        {prodSuggestions.map((prod, idx) => (
-                          <div
-                            key={prod.id}
-                            className={`suggestion-item ${idx === activeProdIdx ? 'active' : ''}`}
-                            onMouseDown={() => selectProd(prod)}
-                            style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}
-                          >
-                            <span>{prod.name}</span>
-                            <span style={{ fontSize: '11px', color: '#6d7980', fontFamily: "'JetBrains Mono', monospace" }}>₩{prod.selling_price.toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* 수량 */}
-                  <div style={{ width: '80px' }}>
-                    <input
-                      type="number"
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontFamily: "'JetBrains Mono', monospace", outline: 'none', background: '#ffffff', textAlign: 'center' }}
-                      placeholder="수량"
-                      value={qty}
-                      onChange={(e) => setQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      min="1"
-                      required
-                    />
-                  </div>
+                {/* 담당 직원 */}
+                <div style={{ width: '120px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontFamily: "'JetBrains Mono', monospace" }}>담당 직원</label>
+                  <select
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontFamily: "'Hanken Grotesk', sans-serif", outline: 'none', background: '#ffffff' }}
+                    value={orderStaffId}
+                    onChange={(e) => {
+                      setOrderStaffId(e.target.value);
+                      localStorage.setItem('last_selected_staff_id', e.target.value);
+                    }}
+                  >
+                    {staffs.map(s => (
+                      <option key={s.staff_id} value={s.staff_id.toString()}>{s.staff_name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* 담당 직원 */}
-              <div style={{ width: '120px' }}>
-                <label style={{ display: 'block', fontSize: '11px', color: '#6d7980', marginBottom: '4px', fontFamily: "'JetBrains Mono', monospace" }}>담당 직원</label>
-                <select
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #bcc8d1', borderRadius: '8px', fontSize: '14px', fontFamily: "'Hanken Grotesk', sans-serif", outline: 'none', background: '#ffffff' }}
-                  value={orderStaffId}
-                  onChange={(e) => {
-                    setOrderStaffId(e.target.value);
-                    localStorage.setItem('last_selected_staff_id', e.target.value);
-                  }}
-                >
-                  {staffs.map(s => (
-                    <option key={s.staff_id} value={s.staff_id.toString()}>{s.staff_name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    padding: '9px 16px', background: '#f0f3ff', color: '#006688', border: '1px solid #006688',
-                    borderRadius: '999px', fontSize: '13px', fontWeight: 600,
-                    fontFamily: "'Hanken Grotesk', sans-serif", cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s',
-                    opacity: loading ? 0.7 : 1,
-                  }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
-                  주문 추가
-                </button>
-              </div>
+              {/* 다중 상품 입력 행 */}
+              {(showOrderLines || custQuery.trim()) && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>품목별 수량 입력 (수량 0 = 제외)</span>
+                    <button
+                      type="button"
+                      onClick={handleAddLine}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        padding: '4px 10px', background: '#006688', color: '#ffffff',
+                        border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>add</span>
+                      행 추가
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {orderLines.map((line, idx) => {
+                      const matchProd = products.find(p => p.name === line.productName);
+                      const lineTotal = matchProd ? matchProd.selling_price * line.quantity : 0;
+                      return (
+                        <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {/* 상품명 + 초성 자동완성 */}
+                          <div style={{ position: 'relative', flex: 2 }}>
+                            <input
+                              type="text"
+                              value={line.productName}
+                              onChange={(e) => handleLineChange(idx, 'productName', e.target.value)}
+                              onFocus={() => setActiveLineDropdown(idx)}
+                              onBlur={() => setTimeout(() => setActiveLineDropdown(-1), 200)}
+                              placeholder="상품명"
+                              autoComplete="off"
+                              style={{
+                                width: '100%', padding: '7px 10px', border: '1px solid #bcc8d1',
+                                borderRadius: '6px', fontSize: '13px', outline: 'none', background: '#ffffff',
+                                fontWeight: matchProd ? 600 : 400,
+                                color: matchProd ? '#151c27' : '#94a3b8',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                            {activeLineDropdown === idx && line.productName.trim() && (() => {
+                              const suggestions = products.filter(p => matchChosung(p.name, line.productName.trim()));
+                              if (suggestions.length === 0 || (suggestions.length === 1 && suggestions[0].name === line.productName)) return null;
+                              return (
+                                <div style={{
+                                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                                  background: '#ffffff', border: '1px solid #bcc8d1', borderRadius: '6px',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: '160px', overflowY: 'auto'
+                                }}>
+                                  {suggestions.map(prod => (
+                                    <div
+                                      key={prod.id}
+                                      onMouseDown={() => {
+                                        handleLineChange(idx, 'productName', prod.name);
+                                        setActiveLineDropdown(-1);
+                                      }}
+                                      style={{
+                                        padding: '6px 10px', cursor: 'pointer', fontSize: '12px',
+                                        display: 'flex', justifyContent: 'space-between',
+                                        borderBottom: '1px solid #f1f5f9'
+                                      }}
+                                    >
+                                      <span style={{ fontWeight: 600 }}>{prod.name}</span>
+                                      <span style={{ color: '#6d7980', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>₩{prod.selling_price.toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          {/* 수량 */}
+                          <div style={{ width: '80px' }}>
+                            <input
+                              type="number"
+                              value={line.quantity}
+                              onChange={(e) => handleLineChange(idx, 'quantity', Math.max(0, parseInt(e.target.value, 10) || 0))}
+                              min="0"
+                              style={{
+                                width: '100%', padding: '7px 10px', border: '1px solid #bcc8d1',
+                                borderRadius: '6px', fontSize: '13px', fontFamily: "'JetBrains Mono', monospace",
+                                outline: 'none', background: line.quantity > 0 ? '#f0fff4' : '#ffffff',
+                                textAlign: 'center', fontWeight: 700,
+                                color: line.quantity > 0 ? '#006b5c' : '#94a3b8',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                          </div>
+                          {/* 금액 표시 */}
+                          <span style={{
+                            width: '80px', textAlign: 'right', fontSize: '12px',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontWeight: 600, color: lineTotal > 0 ? '#006b5c' : '#cbd5e1'
+                          }}>
+                            ₩{lineTotal.toLocaleString()}
+                          </span>
+                          {/* 삭제 버튼 */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLine(idx)}
+                            disabled={orderLines.length <= 1}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '28px', height: '28px', padding: 0,
+                              background: orderLines.length <= 1 ? '#f1f5f9' : '#fff1f2',
+                              color: orderLines.length <= 1 ? '#cbd5e1' : '#dc2626',
+                              border: 'none', borderRadius: '6px', cursor: orderLines.length <= 1 ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>remove</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* 합계 + 주문 추가 버튼 */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>
+                      선택 품목: <strong style={{ color: '#006b5c' }}>{orderLines.filter(l => l.quantity > 0).length}건</strong>
+                      {' / '}
+                      합계: <strong style={{ color: '#006688', fontFamily: "'JetBrains Mono', monospace" }}>
+                        ₩{orderLines.reduce((sum, line) => {
+                          const p = products.find(pr => pr.name === line.productName);
+                          return sum + (p ? p.selling_price * line.quantity : 0);
+                        }, 0).toLocaleString()}
+                      </strong>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      style={{
+                        padding: '9px 16px', background: '#f0f3ff', color: '#006688', border: '1px solid #006688',
+                        borderRadius: '999px', fontSize: '13px', fontWeight: 600,
+                        fontFamily: "'Hanken Grotesk', sans-serif", cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s',
+                        opacity: loading ? 0.7 : 1,
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
+                      장바구니 담기
+                    </button>
+                  </div>
+                </div>
+              )}
             </form>
 
             {/* 장바구니(카트) UI */}
