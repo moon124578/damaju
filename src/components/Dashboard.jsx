@@ -109,7 +109,7 @@ export default function Dashboard({ user }) {
         .from('dashboard_notes')
         .select('*')
         .eq('username', username)
-        .order('id', { ascending: true });
+        .order('sort_order', { ascending: true });
       
       if (error) throw error;
       
@@ -126,7 +126,8 @@ export default function Dashboard({ user }) {
             x: 20,
             y: 40,
             w: 220,
-            h: 180
+            h: 180,
+            sort_order: 1
           },
           {
             id: Date.now() + 1,
@@ -136,7 +137,8 @@ export default function Dashboard({ user }) {
             x: 260,
             y: 120,
             w: 200,
-            h: 140
+            h: 140,
+            sort_order: 2
           }
         ];
         
@@ -166,6 +168,7 @@ export default function Dashboard({ user }) {
 
   // 포스트잇 기능 구현
   const addStickyNote = async () => {
+    const nextOrder = notes.length > 0 ? Math.max(...notes.map(n => n.sort_order || 0)) + 1 : 1;
     const newNote = {
       id: Date.now(),
       username: username,
@@ -174,7 +177,8 @@ export default function Dashboard({ user }) {
       x: 40,
       y: 40,
       w: 180,
-      h: 140
+      h: 140,
+      sort_order: nextOrder
     };
     try {
       const { error } = await supabase

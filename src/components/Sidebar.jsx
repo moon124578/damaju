@@ -17,14 +17,23 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
   const [notes, setNotes] = useState([]);
   const [copiedNoteId, setCopiedNoteId] = useState(null);
 
+  // 드래그앤드롭 정렬 상태 및 ref
+  const [draggedIdx, setDraggedIdx] = useState(null);
+  const draggedIdxRef = React.useRef(null);
+
+  React.useEffect(() => {
+    draggedIdxRef.current = draggedIdx;
+  }, [draggedIdx]);
+
   const fetchNotes = async () => {
+    if (draggedIdxRef.current !== null) return; // 드래그 중에는 폴링 중단
     const username = user?.username || 'admin';
     try {
       const { data, error } = await supabase
         .from('dashboard_notes')
         .select('*')
         .eq('username', username)
-        .order('id', { ascending: true });
+        .order('sort_order', { ascending: true }); // sort_order 기준으로 정렬
       if (error) throw error;
       if (data) {
         setNotes(data.filter(n => n.text && n.text.trim() !== ''));
@@ -43,6 +52,40 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
       clearInterval(interval);
     };
   }, [activeTab, user]);
+
+  const handleDragStart = (e, index) => {
+    setDraggedIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === index) return;
+
+    // 로컬 상태 순서 스왑
+    const reordered = [...notes];
+    const draggedItem = reordered[draggedIdx];
+    reordered.splice(draggedIdx, 1);
+    reordered.splice(index, 0, draggedItem);
+
+    setNotes(reordered);
+    setDraggedIdx(index);
+  };
+
+  const handleDragEnd = async () => {
+    setDraggedIdx(null);
+    try {
+      const updates = notes.map((note, index) => {
+        return supabase
+          .from('dashboard_notes')
+          .update({ sort_order: index + 1 })
+          .eq('id', note.id);
+      });
+      await Promise.all(updates);
+    } catch (err) {
+      console.error('Failed to save reordered notes:', err);
+    }
+  };
 
   const handleCopyText = (note) => {
     navigator.clipboard.writeText(note.text);
@@ -133,7 +176,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
               <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>📌 빠른 메모 복사</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 4px' }}>
-              {notes.map(note => {
+              {notes.map((note, idx) => {
                 const colors = {
                   yellow: { bg: 'rgba(255, 243, 191, 0.15)', border: '#fcc419' },
                   mint: { bg: 'rgba(211, 249, 216, 0.15)', border: '#51cf66' },
@@ -148,6 +191,10 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
                 return (
                   <div
                     key={note.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragEnd={handleDragEnd}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -158,7 +205,10 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
                       borderLeft: `3px solid ${cStyle.border}`,
                       fontSize: '12px',
                       transition: 'all 0.2s ease',
-                      gap: '8px'
+                      gap: '8px',
+                      cursor: draggedIdx === idx ? 'grabbing' : 'grab',
+                      opacity: draggedIdx === idx ? 0.4 : 1,
+                      userSelect: 'none'
                     }}
                   >
                     <span
@@ -176,6 +226,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
                     </span>
                     <button
                       onClick={() => handleCopyText(note)}
+                      onDragStart={(e) => e.stopPropagation()}
                       style={{
                         background: 'transparent',
                         border: 'none',
