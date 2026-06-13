@@ -30,6 +30,8 @@ export default function Shipping({ onDataChange }) {
   const [selectedIndices, setSelectedIndices] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'shippingFee' | 'keep' | 'none'
+  const [keepColor, setKeepColor] = useState('#7c3aed');
+  const [feeColor, setFeeColor] = useState('#006b5c');
 
   // 고객 정보 수정 모달 상태
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -41,8 +43,41 @@ export default function Shipping({ onDataChange }) {
     address: '',
   });
 
+  const hexToRgba = (hex, alpha) => {
+    if (!hex) return 'transparent';
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const fetchColors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .in('key', ['shipping_color_keep', 'shipping_color_fee']);
+      if (error) throw error;
+      if (data) {
+        const keepCol = data.find(item => item.key === 'shipping_color_keep');
+        const feeCol = data.find(item => item.key === 'shipping_color_fee');
+        if (keepCol) setKeepColor(keepCol.value);
+        if (feeCol) setFeeColor(feeCol.value);
+      }
+    } catch (err) {
+      console.error('Error fetching colors:', err);
+    }
+  };
+
   useEffect(() => {
     fetchShippingData();
+    fetchColors();
+
+    const handleColorsChange = () => fetchColors();
+    window.addEventListener('shipping_colors_changed', handleColorsChange);
+    return () => {
+      window.removeEventListener('shipping_colors_changed', handleColorsChange);
+    };
   }, []);
 
   const fetchShippingData = async () => {
@@ -373,13 +408,13 @@ export default function Shipping({ onDataChange }) {
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginRight: '8px' }}>
             <span style={{ 
               fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
-              background: 'rgba(0, 107, 92, 0.1)', color: '#006b5c', border: '1px solid rgba(0, 107, 92, 0.2)'
+              background: hexToRgba(feeColor, 0.1), color: feeColor, border: `1px solid ${hexToRgba(feeColor, 0.2)}`
             }}>
               🚚 배송비완료
             </span>
             <span style={{ 
               fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
-              background: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.2)'
+              background: hexToRgba(keepColor, 0.1), color: keepColor, border: `1px solid ${hexToRgba(keepColor, 0.2)}`
             }}>
               📦 Keep
             </span>
@@ -402,7 +437,7 @@ export default function Shipping({ onDataChange }) {
             disabled={selectedIndices.length === 0}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '10px 18px', background: selectedIndices.length > 0 ? '#006b5c' : '#cbd5e1',
+              padding: '10px 18px', background: selectedIndices.length > 0 ? feeColor : '#cbd5e1',
               color: selectedIndices.length > 0 ? '#ffffff' : '#94a3b8',
               border: 'none', borderRadius: '8px', cursor: selectedIndices.length > 0 ? 'pointer' : 'not-allowed',
               fontSize: '13px', fontWeight: 700, transition: 'all 0.15s ease'
@@ -476,8 +511,8 @@ export default function Shipping({ onDataChange }) {
             const isActive = statusFilter === tab.key;
             let activeBg = '#006688';
             let activeColor = '#ffffff';
-            if (tab.key === 'shippingFee') { activeBg = '#006b5c'; }
-            if (tab.key === 'keep') { activeBg = '#7c3aed'; }
+            if (tab.key === 'shippingFee') { activeBg = feeColor; }
+            if (tab.key === 'keep') { activeBg = keepColor; }
             if (tab.key === 'none') { activeBg = '#64748b'; }
             return (
               <button
@@ -602,16 +637,16 @@ export default function Shipping({ onDataChange }) {
                 let rowBg = 'transparent';
                 let rowLeftBorder = 'none';
                 if (isSelected) {
-                  rowBg = 'rgba(0, 107, 92, 0.04)';
+                  rowBg = hexToRgba(feeColor, 0.04);
                 } else if (hasShippingFeePaid && hasKeep) {
-                  rowBg = 'linear-gradient(90deg, rgba(0, 107, 92, 0.06) 0%, rgba(124, 58, 237, 0.06) 100%)';
-                  rowLeftBorder = '3px solid #7c3aed';
+                  rowBg = `linear-gradient(90deg, ${hexToRgba(feeColor, 0.06)} 0%, ${hexToRgba(keepColor, 0.06)} 100%)`;
+                  rowLeftBorder = `3px solid ${keepColor}`;
                 } else if (hasKeep) {
-                  rowBg = 'rgba(124, 58, 237, 0.05)';
-                  rowLeftBorder = '3px solid #7c3aed';
+                  rowBg = hexToRgba(keepColor, 0.05);
+                  rowLeftBorder = `3px solid ${keepColor}`;
                 } else if (hasShippingFeePaid) {
-                  rowBg = 'rgba(0, 107, 92, 0.05)';
-                  rowLeftBorder = '3px solid #006b5c';
+                  rowBg = hexToRgba(feeColor, 0.05);
+                  rowLeftBorder = `3px solid ${feeColor}`;
                 }
 
                 return (
@@ -669,9 +704,9 @@ export default function Shipping({ onDataChange }) {
                           onClick={() => handleToggleFlag(order_ids, 'shipping_fee_paid', hasShippingFeePaid, customer.name)}
                           style={{
                             padding: '3px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
-                            border: hasShippingFeePaid ? '1px solid #006b5c' : '1px dashed #94a3b8',
-                            background: hasShippingFeePaid ? 'rgba(0, 107, 92, 0.12)' : 'transparent',
-                            color: hasShippingFeePaid ? '#006b5c' : '#94a3b8',
+                            border: hasShippingFeePaid ? `1px solid ${feeColor}` : '1px dashed #94a3b8',
+                            background: hasShippingFeePaid ? hexToRgba(feeColor, 0.12) : 'transparent',
+                            color: hasShippingFeePaid ? feeColor : '#94a3b8',
                             cursor: 'pointer', transition: 'all 0.15s ease'
                           }}
                           title={hasShippingFeePaid ? '배송비 완료 해제' : '배송비 완료 설정'}
@@ -682,9 +717,9 @@ export default function Shipping({ onDataChange }) {
                           onClick={() => handleToggleFlag(order_ids, 'is_keep', hasKeep, customer.name)}
                           style={{
                             padding: '3px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
-                            border: hasKeep ? '1px solid #7c3aed' : '1px dashed #94a3b8',
-                            background: hasKeep ? 'rgba(124, 58, 237, 0.12)' : 'transparent',
-                            color: hasKeep ? '#7c3aed' : '#94a3b8',
+                            border: hasKeep ? `1px solid ${keepColor}` : '1px dashed #94a3b8',
+                            background: hasKeep ? hexToRgba(keepColor, 0.12) : 'transparent',
+                            color: hasKeep ? keepColor : '#94a3b8',
                             cursor: 'pointer', transition: 'all 0.15s ease'
                           }}
                           title={hasKeep ? 'Keep 해제' : 'Keep 설정'}
@@ -694,7 +729,7 @@ export default function Shipping({ onDataChange }) {
                         <button
                           onClick={() => handleUpdateStatus(order_ids, '배송 완료', `${customer.name} 고객님의 품목들을 배송 완료 처리하시겠습니까?`)}
                           style={{
-                            padding: '4px 8px', background: '#006b5c', color: '#ffffff',
+                            padding: '4px 8px', background: feeColor, color: '#ffffff',
                             border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
                             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px'
                           }}

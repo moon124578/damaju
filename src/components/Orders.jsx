@@ -245,6 +245,92 @@ export default function Orders({ onDataChange }) {
     setOrderLines(makeDefaultLines());
   };
 
+  // 즉시 최종 주문 접수 실행 (장바구니를 거치지 않고 바로 DB 저장)
+  const handleDirectSubmitOrders = async () => {
+    if (!custQuery.trim()) {
+      alert('고객 닉네임을 입력해주세요.');
+      return;
+    }
+
+    // 고객정보 유효성 검증
+    const typedQuery = custQuery.trim();
+    let matchCust = customers.find(c => c.nickname === typedQuery || c.name === typedQuery);
+    if (!matchCust && typedQuery.startsWith('[') && typedQuery.includes(']')) {
+      const closingBracketIdx = typedQuery.indexOf(']');
+      const parsedNickname = typedQuery.substring(1, closingBracketIdx).trim();
+      matchCust = customers.find(c => c.nickname === parsedNickname);
+    }
+    if (!matchCust) {
+      alert('회원정보(고객)에 존재하지 않는 닉네임/이름입니다. 회원정보 탭에서 먼저 고객을 등록해주세요.');
+      return;
+    }
+
+    // 수량이 0보다 큰 행만 필터링
+    const validLines = orderLines.filter(line => line.quantity > 0 && line.productName.trim());
+    if (validLines.length === 0) {
+      alert('수량이 1개 이상인 상품이 없습니다. 수량을 입력해주세요.');
+      return;
+    }
+
+    const staffId = orderStaffId ? Number(orderStaffId) : null;
+    const itemsToSubmit = [];
+
+    for (const line of validLines) {
+      // 상품정보 유효성 검증
+      const matchProd = products.find(p => p.name === line.productName.trim());
+      if (!matchProd) {
+        alert(`상품관리에 등록되지 않은 상품명입니다: ${line.productName}`);
+        return;
+      }
+      const unitPrice = matchProd.selling_price;
+      itemsToSubmit.push({
+        custId: matchCust.customer_id,
+        prodQuery: line.productName.trim(),
+        quantity: Number(line.quantity),
+        unitPrice,
+        totalPrice: unitPrice * Number(line.quantity),
+        staffId,
+      });
+    }
+
+    if (!window.confirm(`입력한 ${itemsToSubmit.length}건의 주문을 즉시 최종 접수하시겠습니까?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      for (const item of itemsToSubmit) {
+        const { error: ordErr } = await supabase
+          .from('orders')
+          .insert({
+            customer_id: item.custId,
+            product_name: item.prodQuery,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            total_price: item.totalPrice,
+            staff_id: item.staffId,
+            order_status: '배송 전',
+          });
+
+        if (ordErr) throw ordErr;
+      }
+
+      // 입력 폼 초기화
+      setOrderLines(makeDefaultLines());
+      setCustQuery('');
+      setSelectedCustomer(null);
+
+      await fetchOrders();
+      onDataChange();
+      alert('주문이 모두 접수되었습니다. (초기 상태: 배송 전)');
+    } catch (err) {
+      console.error(err);
+      alert('주문 등록 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 장바구니 항목 삭제
   const handleRemoveFromCart = (id) => {
     setCartItems(cartItems.filter(item => item.id !== id));
@@ -627,19 +713,35 @@ export default function Orders({ onDataChange }) {
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>품목별 수량 입력 (수량 0 = 제외)</span>
-                    <button
-                      type="button"
-                      onClick={handleAddLine}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                        padding: '4px 10px', background: '#006688', color: '#ffffff',
-                        border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>add</span>
-                      행 추가
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={handleAddLine}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          padding: '4px 10px', background: '#006688', color: '#ffffff',
+                          border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>add</span>
+                        행 추가
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDirectSubmitOrders}
+                        disabled={loading}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          padding: '4px 10px', background: '#006b5c', color: '#ffffff',
+                          border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                          cursor: 'pointer', opacity: loading ? 0.7 : 1
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check_circle</span>
+                        최종 주문 접수
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {orderLines.map((line, idx) => {

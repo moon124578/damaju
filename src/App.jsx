@@ -155,7 +155,7 @@ export default function App() {
         }}
       >
         <div style={{ padding: isMobile && activeTab === 'dashboard' ? '16px' : '0', height: '100%', display: 'flex', flexDirection: 'column' }}>
-          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'dashboard' && <Dashboard user={user} />}
           {activeTab === 'customers' && <Customers onDataChange={triggerRefresh} />}
           {activeTab === 'orders' && <Orders onDataChange={triggerRefresh} />}
           {activeTab === 'products' && <Products onDataChange={triggerRefresh} />}

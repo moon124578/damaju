@@ -28,6 +28,8 @@ export default function Settings({ user }) {
   const [invoiceFontSize, setInvoiceFontSize] = useState('14');
   const [invoiceMessage, setInvoiceMessage] = useState('예쁜 거, 다 담아드릴게요. 이용해 주셔서 감사합니다! ❤️');
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [keepColor, setKeepColor] = useState('#7c3aed');
+  const [feeColor, setFeeColor] = useState('#006b5c');
 
   // 비밀번호 변경 관련 상태
   const [newPassword, setNewPassword] = useState('');
@@ -66,9 +68,13 @@ export default function Settings({ user }) {
         const bank = data.find(item => item.key === 'bank_account_info');
         const size = data.find(item => item.key === 'invoice_font_size');
         const msg = data.find(item => item.key === 'invoice_message');
+        const keepCol = data.find(item => item.key === 'shipping_color_keep');
+        const feeCol = data.find(item => item.key === 'shipping_color_fee');
         if (bank) setBankInfo(bank.value);
         if (size) setInvoiceFontSize(size.value);
         if (msg) setInvoiceMessage(msg.value);
+        if (keepCol) setKeepColor(keepCol.value);
+        if (feeCol) setFeeColor(feeCol.value);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -132,6 +138,34 @@ export default function Settings({ user }) {
     } catch (err) {
       console.error(err);
       alert('정산서 문구 저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  const hexToRgba = (hex, alpha) => {
+    if (!hex) return 'transparent';
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const handleSaveShippingColors = async () => {
+    try {
+      const { error: err1 } = await supabase
+        .from('system_settings')
+        .upsert({ key: 'shipping_color_keep', value: keepColor, updated_at: new Date().toISOString() });
+      if (err1) throw err1;
+
+      const { error: err2 } = await supabase
+        .from('system_settings')
+        .upsert({ key: 'shipping_color_fee', value: feeColor, updated_at: new Date().toISOString() });
+      if (err2) throw err2;
+
+      window.dispatchEvent(new Event('shipping_colors_changed'));
+      alert('배송관리 색상 설정이 저장되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('색상 설정 저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -326,6 +360,7 @@ export default function Settings({ user }) {
     { id: 'customers',  label: '회원정보',       icon: 'group' },
     { id: 'orders',     label: '주문관리',       icon: 'shopping_cart' },
     { id: 'finance',    label: '정산서 발행',     icon: 'receipt_long' },
+    { id: 'shipping',   label: '배송관리',       icon: 'local_shipping' },
     { id: 'employees',  label: '직원정산',       icon: 'payments' },
     { id: 'products',   label: '상품관리',       icon: 'inventory_2' },
     { id: 'stats',      label: '통계',           icon: 'query_stats' },
@@ -797,6 +832,110 @@ export default function Settings({ user }) {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* 4.5. 배송관리 색상 설정 */}
+        {activeSubTab === 'shipping' && (
+          <div style={{ maxWidth: '600px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-symbols-outlined" style={{ color: 'var(--color-mint)' }}>local_shipping</span>
+              배송관리 색상 설정
+            </h4>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0 }}>
+              배송 관리 화면에서 <strong>Keep</strong> 처리된 회원과 <strong>배송비 완료</strong> 처리된 회원을 구별할 때 사용할 강조 색상을 지정합니다.
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>🚚 배송비 완료 회원 색상</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="color"
+                    value={feeColor}
+                    onChange={(e) => setFeeColor(e.target.value)}
+                    style={{ border: 'none', width: '40px', height: '40px', padding: 0, background: 'transparent', cursor: 'pointer', borderRadius: '4px' }}
+                  />
+                  <input
+                    type="text"
+                    value={feeColor}
+                    onChange={(e) => setFeeColor(e.target.value)}
+                    style={{
+                      flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '8px',
+                      fontSize: '13px', fontFamily: 'monospace', background: 'var(--bg-main)', color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>📦 Keep 회원 색상</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="color"
+                    value={keepColor}
+                    onChange={(e) => setKeepColor(e.target.value)}
+                    style={{ border: 'none', width: '40px', height: '40px', padding: 0, background: 'transparent', cursor: 'pointer', borderRadius: '4px' }}
+                  />
+                  <input
+                    type="text"
+                    value={keepColor}
+                    onChange={(e) => setKeepColor(e.target.value)}
+                    style={{
+                      flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '8px',
+                      fontSize: '13px', fontFamily: 'monospace', background: 'var(--bg-main)', color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 미리보기 카드 */}
+            <div style={{ marginTop: '12px', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '12px' }}>색상 적용 미리보기</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{
+                  padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold',
+                  background: hexToRgba(feeColor, 0.05), borderLeft: `3px solid ${feeColor}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}>
+                  <span>[길동이] 홍길동 (배송비완료 예시)</span>
+                  <span style={{ fontSize: '11px', color: feeColor, background: hexToRgba(feeColor, 0.12), padding: '2px 6px', borderRadius: '4px' }}>🚚 배송비 완료</span>
+                </div>
+
+                <div style={{
+                  padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold',
+                  background: hexToRgba(keepColor, 0.05), borderLeft: `3px solid ${keepColor}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}>
+                  <span>[꺽정이] 임꺽정 (Keep 예시)</span>
+                  <span style={{ fontSize: '11px', color: keepColor, background: hexToRgba(keepColor, 0.12), padding: '2px 6px', borderRadius: '4px' }}>📦 Keep</span>
+                </div>
+
+                <div style={{
+                  padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold',
+                  backgroundImage: `linear-gradient(90deg, ${hexToRgba(feeColor, 0.06)} 0%, ${hexToRgba(keepColor, 0.06)} 100%)`, borderLeft: `3px solid ${keepColor}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}>
+                  <span>[춘향이] 성춘향 (둘 다 적용 예시)</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <span style={{ fontSize: '10px', color: feeColor, background: hexToRgba(feeColor, 0.12), padding: '2px 6px', borderRadius: '4px' }}>🚚 배송비완료</span>
+                    <span style={{ fontSize: '10px', color: keepColor, background: hexToRgba(keepColor, 0.12), padding: '2px 6px', borderRadius: '4px' }}>📦 Keep</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSaveShippingColors}
+              style={{ 
+                padding: '12px', background: 'var(--color-mint)', color: '#ffffff', 
+                border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, 
+                cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif", marginTop: '8px'
+              }}
+            >
+              배송관리 색상 저장
+            </button>
           </div>
         )}
 

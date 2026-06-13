@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 
 const MENU_ITEMS = [
   { id: 'dashboard',  label: '대시보드',       icon: 'dashboard' },
@@ -16,16 +17,21 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
   const [notes, setNotes] = useState([]);
   const [copiedNoteId, setCopiedNoteId] = useState(null);
 
-  const fetchNotes = () => {
-    const saved = localStorage.getItem('dashboard_sticky_notes');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setNotes(parsed.filter(n => n.text && n.text.trim() !== ''));
-      } catch (e) {
+  const fetchNotes = async () => {
+    const username = user?.username || 'admin';
+    try {
+      const { data, error } = await supabase
+        .from('dashboard_notes')
+        .select('*')
+        .eq('username', username)
+        .order('id', { ascending: true });
+      if (error) throw error;
+      if (data) {
+        setNotes(data.filter(n => n.text && n.text.trim() !== ''));
+      } else {
         setNotes([]);
       }
-    } else {
+    } catch (e) {
       setNotes([]);
     }
   };
@@ -33,12 +39,10 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
   useEffect(() => {
     fetchNotes();
     const interval = setInterval(fetchNotes, 1500);
-    window.addEventListener('storage', fetchNotes);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('storage', fetchNotes);
     };
-  }, [activeTab]);
+  }, [activeTab, user]);
 
   const handleCopyText = (note) => {
     navigator.clipboard.writeText(note.text);

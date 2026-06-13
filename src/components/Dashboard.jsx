@@ -29,7 +29,8 @@ function KpiCard({ title, value, unit, sub, icon, iconColor, trendText, trendCol
 }
 
 // ── 메인 대시보드 ────────────────────────────────────────────────
-export default function Dashboard() {
+export default function Dashboard({ user }) {
+  const username = user?.username || 'admin';
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [orders, setOrders] = useState([]);
@@ -44,38 +45,19 @@ export default function Dashboard() {
     todayRefundCount: 0,
   });
 
-  // 디지털 메모장(포스트잇) 상태
-  const [notes, setNotes] = useState(() => {
-    const saved = localStorage.getItem('dashboard_sticky_notes');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return [
-      {
-        id: 1,
-        text: "환영합니다!\n\n1. 메모지는 상단 헤더를 잡아 드래그로 이동할 수 있습니다.\n2. 우측 하단 모서리를 드래그해 크기를 변경합니다.\n3. 메모 영역 밖으로는 나갈 수 없게 제한되어 있습니다.\n4. 새로고침해도 메모 위치와 내용이 그대로 유지됩니다.",
-        color: "yellow",
-        x: 20,
-        y: 40,
-        w: 220,
-        h: 180
-      },
-      {
-        id: 2,
-        text: "중요 공지:\n금주 주말 재고 실사 예정\n(재고 부족 품목 우선 발주 요망)",
-        color: "mint",
-        x: 260,
-        y: 120,
-        w: 200,
-        h: 140
-      }
-    ];
-  });
+  // 디지털 메모장(포스트잇) 상태 및 ref
+  const [notes, setNotes] = useState([]);
+  const notesRef = useRef([]);
+
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
 
   const boardRef = useRef(null);
 
   useEffect(() => {
     fetchData();
+    fetchNotes();
   }, []);
 
   const fetchData = async () => {
@@ -121,6 +103,55 @@ export default function Dashboard() {
     }
   };
 
+  const fetchNotes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('dashboard_notes')
+        .select('*')
+        .eq('username', username)
+        .order('id', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setNotes(data);
+      } else {
+        // 기본 2개 메모 자동 생성
+        const defaultNotes = [
+          {
+            id: Date.now(),
+            username: username,
+            text: "환영합니다!\n\n1. 메모지는 상단 헤더를 잡아 드래그로 이동할 수 있습니다.\n2. 우측 하단 모서리를 드래그해 크기를 변경합니다.\n3. 메모 영역 밖으로는 나갈 수 없게 제한되어 있습니다.\n4. 새로고침해도 메모 위치와 내용이 그대로 유지됩니다.",
+            color: "yellow",
+            x: 20,
+            y: 40,
+            w: 220,
+            h: 180
+          },
+          {
+            id: Date.now() + 1,
+            username: username,
+            text: "중요 공지:\n금주 주말 재고 실사 예정\n(재고 부족 품목 우선 발주 요망)",
+            color: "mint",
+            x: 260,
+            y: 120,
+            w: 200,
+            h: 140
+          }
+        ];
+        
+        const { error: insErr } = await supabase
+          .from('dashboard_notes')
+          .insert(defaultNotes);
+          
+        if (insErr) throw insErr;
+        setNotes(defaultNotes);
+      }
+    } catch (err) {
+      console.error('Error fetching notes:', err);
+    }
+  };
+
   // 캘린더 생성 관련 로직
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -134,9 +165,10 @@ export default function Dashboard() {
   };
 
   // 포스트잇 기능 구현
-  const addStickyNote = () => {
+  const addStickyNote = async () => {
     const newNote = {
       id: Date.now(),
+      username: username,
       text: '',
       color: 'yellow',
       x: 40,
@@ -144,35 +176,65 @@ export default function Dashboard() {
       w: 180,
       h: 140
     };
-    setNotes(prev => {
-      const updated = [...prev, newNote];
-      localStorage.setItem('dashboard_sticky_notes', JSON.stringify(updated));
-      return updated;
-    });
+    try {
+      const { error } = await supabase
+        .from('dashboard_notes')
+        .insert([newNote]);
+      if (error) throw error;
+      setNotes(prev => [...prev, newNote]);
+    } catch (err) {
+      console.error(err);
+      alert('메모 생성에 실패했습니다.');
+    }
   };
 
-  const deleteStickyNote = (noteId) => {
-    setNotes(prev => {
-      const updated = prev.filter(n => n.id !== noteId);
-      localStorage.setItem('dashboard_sticky_notes', JSON.stringify(updated));
-      return updated;
-    });
+  const deleteStickyNote = async (noteId) => {
+    try {
+      const { error } = await supabase
+        .from('dashboard_notes')
+        .delete()
+        .eq('id', noteId);
+      if (error) throw error;
+      setNotes(prev => prev.filter(n => n.id !== noteId));
+    } catch (err) {
+      console.error(err);
+      alert('메모 삭제에 실패했습니다.');
+    }
   };
+
+  const debounceTimers = useRef({});
 
   const updateNoteText = (noteId, text) => {
-    setNotes(prev => {
-      const updated = prev.map(n => n.id === noteId ? { ...n, text } : n);
-      localStorage.setItem('dashboard_sticky_notes', JSON.stringify(updated));
-      return updated;
-    });
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, text } : n));
+
+    if (debounceTimers.current[noteId]) {
+      clearTimeout(debounceTimers.current[noteId]);
+    }
+    
+    debounceTimers.current[noteId] = setTimeout(async () => {
+      try {
+        await supabase
+          .from('dashboard_notes')
+          .update({ text })
+          .eq('id', noteId);
+      } catch (err) {
+        console.error('Text sync error:', err);
+      }
+      delete debounceTimers.current[noteId];
+    }, 800);
   };
 
-  const changeNoteColor = (noteId, color) => {
-    setNotes(prev => {
-      const updated = prev.map(n => n.id === noteId ? { ...n, color } : n);
-      localStorage.setItem('dashboard_sticky_notes', JSON.stringify(updated));
-      return updated;
-    });
+  const changeNoteColor = async (noteId, color) => {
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, color } : n));
+    try {
+      const { error } = await supabase
+        .from('dashboard_notes')
+        .update({ color })
+        .eq('id', noteId);
+      if (error) throw error;
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // 포스트잇 드래그 이동 핸들러
@@ -195,20 +257,27 @@ export default function Dashboard() {
       let newX = startNoteX + (moveEvent.clientX - startX);
       let newY = startNoteY + (moveEvent.clientY - startY);
 
-      // 메모판 경계 제한
       newX = Math.max(0, Math.min(newX, boardRect.width - note.w));
       newY = Math.max(0, Math.min(newY, boardRect.height - note.h));
 
-      setNotes(prev => {
-        const updated = prev.map(n => n.id === noteId ? { ...n, x: newX, y: newY } : n);
-        localStorage.setItem('dashboard_sticky_notes', JSON.stringify(updated));
-        return updated;
-      });
+      setNotes(prev => prev.map(n => n.id === noteId ? { ...n, x: newX, y: newY } : n));
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = async () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      
+      const finalNote = notesRef.current.find(n => n.id === noteId);
+      if (finalNote) {
+        try {
+          await supabase
+            .from('dashboard_notes')
+            .update({ x: finalNote.x, y: finalNote.y })
+            .eq('id', noteId);
+        } catch (err) {
+          console.error(err);
+        }
+      }
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -235,24 +304,30 @@ export default function Dashboard() {
       let newW = startW + (moveEvent.clientX - startX);
       let newH = startH + (moveEvent.clientY - startY);
 
-      // 최소 크기 제한
       newW = Math.max(120, newW);
       newH = Math.max(100, newH);
 
-      // 메모판 경계 제한
       newW = Math.min(newW, boardRect.width - note.x);
       newH = Math.min(newH, boardRect.height - note.y);
 
-      setNotes(prev => {
-        const updated = prev.map(n => n.id === noteId ? { ...n, w: newW, h: newH } : n);
-        localStorage.setItem('dashboard_sticky_notes', JSON.stringify(updated));
-        return updated;
-      });
+      setNotes(prev => prev.map(n => n.id === noteId ? { ...n, w: newW, h: newH } : n));
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = async () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+
+      const finalNote = notesRef.current.find(n => n.id === noteId);
+      if (finalNote) {
+        try {
+          await supabase
+            .from('dashboard_notes')
+            .update({ w: finalNote.w, h: finalNote.h })
+            .eq('id', noteId);
+        } catch (err) {
+          console.error(err);
+        }
+      }
     };
 
     document.addEventListener('mousemove', handleMouseMove);
