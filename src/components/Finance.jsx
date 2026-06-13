@@ -234,14 +234,12 @@ export default function Finance({ onDataChange }) {
 
   const handleBulkCompleteFinance = async () => {
     if (!selectedRow || currentInvoiceOrders.length === 0) return;
-    if (!shippingFeePaid && !isKeep) {
-      alert('배송비 완료 또는 Keep 중 하나 이상을 체크해주세요.');
-      return;
-    }
+    
     const checks = [];
     if (shippingFeePaid) checks.push('배송비 완료');
     if (isKeep) checks.push('Keep');
-    if (!window.confirm(`${currentInvoiceCustomer?.name || '고객'}님의 선택한 묶음 주문 전체를 입금 완료로 변경하시겠습니까?\n\n체크 항목: ${checks.join(', ')}`)) return;
+    const checkMsg = checks.length > 0 ? `체크 항목: ${checks.join(', ')}` : '선택된 체크 항목 없음';
+    if (!window.confirm(`${currentInvoiceCustomer?.name || '고객'}님의 선택한 묶음 주문 전체를 입금 완료로 변경하시겠습니까?\n\n${checkMsg}`)) return;
     setLoading(true);
     try {
       const orderIds = currentInvoiceOrders.map(o => o.order_id);
@@ -535,18 +533,18 @@ export default function Finance({ onDataChange }) {
               <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   onClick={handleBulkCompleteFinance}
-                  disabled={loading || (!shippingFeePaid && !isKeep)}
+                  disabled={loading}
                   style={{
                     flex: 0.8, padding: '12px 8px', 
-                    background: (shippingFeePaid || isKeep) ? '#006b5c' : '#f1f5f9', 
-                    color: (shippingFeePaid || isKeep) ? '#ffffff' : '#94a3b8', 
-                    border: (shippingFeePaid || isKeep) ? 'none' : '1px solid #cbd5e1', 
+                    background: '#006b5c', 
+                    color: '#ffffff', 
+                    border: 'none', 
                     borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                    cursor: (loading || (!shippingFeePaid && !isKeep)) ? 'not-allowed' : 'pointer', 
+                    cursor: loading ? 'not-allowed' : 'pointer', 
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
                     transition: 'all 0.2s'
                   }}
-                  title="배송비 완료 또는 Keep을 체크한 후 입금 완료 처리"
+                  title="묶음 주문 전체 입금 완료 처리"
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>payments</span>
                   입금 완료
