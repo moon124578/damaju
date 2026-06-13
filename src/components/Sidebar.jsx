@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const MENU_ITEMS = [
   { id: 'dashboard',  label: '대시보드',       icon: 'dashboard' },
@@ -13,6 +13,41 @@ const MENU_ITEMS = [
 ];
 
 export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMobile, sidebarOpen, setSidebarOpen }) {
+  const [notes, setNotes] = useState([]);
+  const [copiedNoteId, setCopiedNoteId] = useState(null);
+
+  const fetchNotes = () => {
+    const saved = localStorage.getItem('dashboard_sticky_notes');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setNotes(parsed.filter(n => n.text && n.text.trim() !== ''));
+      } catch (e) {
+        setNotes([]);
+      }
+    } else {
+      setNotes([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotes();
+    const interval = setInterval(fetchNotes, 1500);
+    window.addEventListener('storage', fetchNotes);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', fetchNotes);
+    };
+  }, [activeTab]);
+
+  const handleCopyText = (note) => {
+    navigator.clipboard.writeText(note.text);
+    setCopiedNoteId(note.id);
+    setTimeout(() => {
+      setCopiedNoteId(null);
+    }, 1500);
+  };
+
   return (
     <aside style={{
       position: 'fixed', left: 0, top: 0, height: '100%', width: '240px',
@@ -84,6 +119,90 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isMob
             </button>
           );
         })}
+
+        {/* 빠른 메모 복사 영역 */}
+        {notes.length > 0 && (
+          <>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '12px 4px' }} />
+            <div style={{ padding: '0 4px 4px 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-mint)' }}>note_alt</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>📌 빠른 메모 복사</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 4px' }}>
+              {notes.map(note => {
+                const colors = {
+                  yellow: { bg: 'rgba(255, 243, 191, 0.15)', border: '#fcc419' },
+                  mint: { bg: 'rgba(211, 249, 216, 0.15)', border: '#51cf66' },
+                  pink: { bg: 'rgba(255, 219, 240, 0.15)', border: '#f783ac' },
+                  blue: { bg: 'rgba(208, 235, 255, 0.15)', border: '#4dabf7' },
+                  orange: { bg: 'rgba(255, 224, 204, 0.15)', border: '#ff922b' }
+                };
+                const cStyle = colors[note.color] || colors.yellow;
+                const singleLineText = note.text.replace(/\s+/g, ' ').trim();
+                const isCopied = copiedNoteId === note.id;
+
+                return (
+                  <div
+                    key={note.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      background: cStyle.bg,
+                      borderLeft: `3px solid ${cStyle.border}`,
+                      fontSize: '12px',
+                      transition: 'all 0.2s ease',
+                      gap: '8px'
+                    }}
+                  >
+                    <span
+                      style={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'sans-serif'
+                      }}
+                      title={note.text}
+                    >
+                      {singleLineText}
+                    </span>
+                    <button
+                      onClick={() => handleCopyText(note)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        color: isCopied ? '#006b5c' : '#6d7980',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="클립보드에 복사"
+                    >
+                      {isCopied ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
+                          복사됨
+                        </span>
+                      ) : (
+                        <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>content_copy</span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </nav>
 
       {/* 사용자 푸터 */}
