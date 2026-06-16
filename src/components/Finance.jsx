@@ -147,7 +147,9 @@ export default function Finance({ onDataChange }) {
       useCORS: true,
     }).then((canvas) => {
       const link = document.createElement('a');
-      link.download = `정산서_${currentInvoiceCustomer?.name || '고객'}_${todayStr}.png`;
+      const nickname = currentInvoiceCustomer?.nickname ? `${currentInvoiceCustomer.nickname}_` : '';
+      const name = currentInvoiceCustomer?.name || '고객';
+      link.download = `${nickname}${name}_${todayStr}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     });
