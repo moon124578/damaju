@@ -29,9 +29,52 @@ export default function Shipping({ onDataChange }) {
   const [loading, setLoading] = useState(true);
   const [selectedIndices, setSelectedIndices] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'shippingFee' | 'keep' | 'none'
+  const [statusFilters, setStatusFilters] = useState(['all']); // Array of: 'all' | 'shippingFee' | 'keep' | 'none'
   const [keepColor, setKeepColor] = useState('#7c3aed');
   const [feeColor, setFeeColor] = useState('#006b5c');
+
+  // 필터 토글 핸들러
+  const handleToggleFilter = (filterKey) => {
+    setSelectedIndices([]);
+    if (filterKey === 'all') {
+      setStatusFilters(['all']);
+      return;
+    }
+
+    setStatusFilters(prev => {
+      let next = prev.filter(f => f !== 'all');
+      if (next.includes(filterKey)) {
+        next = next.filter(f => f !== filterKey);
+      } else {
+        next.push(filterKey);
+      }
+      return next.length === 0 ? ['all'] : next;
+    });
+  };
+
+  // 현재 필터링 및 검색이 적용된 행 목록 가져오기
+  const getFilteredRows = () => {
+    return shippingRows.filter(row => {
+      // 1. 검색 필터
+      if (searchQuery) {
+        const { customer } = row;
+        const nameMatch = matchChosung(customer.name, searchQuery);
+        const nickMatch = customer.nickname && matchChosung(customer.nickname, searchQuery);
+        const phoneMatch = customer.phone && customer.phone.includes(searchQuery);
+        if (!nameMatch && !nickMatch && !phoneMatch) return false;
+      }
+      // 2. 상태 필터 (중복 선택 가능)
+      if (statusFilters.includes('all')) return true;
+      
+      // 개별 조건 검사
+      const matchShippingFee = statusFilters.includes('shippingFee') && row.hasShippingFeePaid;
+      const matchKeep = statusFilters.includes('keep') && row.hasKeep;
+      const matchNone = statusFilters.includes('none') && (!row.hasShippingFeePaid && !row.hasKeep);
+      
+      // 선택한 필터 조건 중 하나라도 맞으면 노출 (OR 조건)
+      return matchShippingFee || matchKeep || matchNone;
+    });
+  };
 
   // 고객 정보 수정 모달 상태
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -281,8 +324,9 @@ export default function Shipping({ onDataChange }) {
   };
 
   const handleDownloadWaybill = async () => {
-    if (shippingRows.length === 0) {
-      alert('출력할 배송 정보가 없습니다.');
+    const targetRows = getFilteredRows();
+    if (targetRows.length === 0) {
+      alert('출력할 배송 정보가 없습니다. (현재 화면에 표시된 대상이 없습니다)');
       return;
     }
 
@@ -297,7 +341,7 @@ export default function Shipping({ onDataChange }) {
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
 
-      const data = shippingRows.map(row => {
+      const data = targetRows.map(row => {
         const name = row.customer.name && row.customer.name !== '알 수 없음' ? row.customer.name : (row.customer.nickname || '이름 없음');
         const phone = formatPhoneNumber(row.customer.phone);
         const address = row.customer.address || '';
@@ -500,15 +544,15 @@ export default function Shipping({ onDataChange }) {
           </button>
         )}
 
-        {/* 구분 필터 탭 */}
-        <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
+        {/* 구분 필터 탭 (중복 선택 가능) */}
+        <div style={{ display: 'flex', gap: '6px', marginLeft: '8px' }}>
           {[
             { key: 'all', label: '전체' },
             { key: 'shippingFee', label: '🚚 배송비완료' },
             { key: 'keep', label: '📦 Keep' },
             { key: 'none', label: '미설정' },
           ].map(tab => {
-            const isActive = statusFilter === tab.key;
+            const isActive = statusFilters.includes(tab.key);
             let activeBg = '#006688';
             let activeColor = '#ffffff';
             if (tab.key === 'shippingFee') { activeBg = feeColor; }
@@ -517,16 +561,23 @@ export default function Shipping({ onDataChange }) {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setStatusFilter(tab.key); setSelectedIndices([]); }}
+                onClick={() => handleToggleFilter(tab.key)}
                 style={{
-                  padding: '6px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
+                  padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
                   border: isActive ? 'none' : '1px solid var(--border-color)',
                   background: isActive ? activeBg : 'transparent',
                   color: isActive ? activeColor : 'var(--text-muted)',
-                  cursor: 'pointer', transition: 'all 0.15s ease'
+                  cursor: 'pointer', transition: 'all 0.15s ease',
+                  boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
               >
                 {tab.label}
+                {isActive && tab.key !== 'all' && (
+                  <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.3)', padding: '1px 5px', borderRadius: '10px', marginLeft: '2px' }}>✓</span>
+                )}
               </button>
             );
           })}
@@ -578,28 +629,14 @@ export default function Shipping({ onDataChange }) {
       {/* 배송 리스트 영역 (테이블 구조로 세련되고 촘촘하게 구성) */}
       <div id="print-area" style={{ flex: 1, overflowX: 'auto' }}>
         {(() => {
-          const filteredRows = shippingRows.filter(row => {
-            // 검색 필터
-            if (searchQuery) {
-              const { customer } = row;
-              const nameMatch = matchChosung(customer.name, searchQuery);
-              const nickMatch = customer.nickname && matchChosung(customer.nickname, searchQuery);
-              const phoneMatch = customer.phone && customer.phone.includes(searchQuery);
-              if (!nameMatch && !nickMatch && !phoneMatch) return false;
-            }
-            // 상태 필터
-            if (statusFilter === 'shippingFee' && !row.hasShippingFeePaid) return false;
-            if (statusFilter === 'keep' && !row.hasKeep) return false;
-            if (statusFilter === 'none' && (row.hasShippingFeePaid || row.hasKeep)) return false;
-            return true;
-          });
+          const filteredRows = getFilteredRows();
           
           if (loading && shippingRows.length === 0) return (
             <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>로딩 중...</div>
           );
           if (filteredRows.length === 0) return (
             <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>
-              {searchQuery ? '검색 결과가 없습니다.' : '입금 완료 상태의 배송 대상 주문이 없습니다.'}
+              {searchQuery ? '검색 결과가 없습니다.' : '조건에 만족하는 배송 대상 주문이 없습니다.'}
             </div>
           );
           return (
@@ -633,24 +670,27 @@ export default function Shipping({ onDataChange }) {
                 const { customer, order_ids, totalQuantity, order_status, hasShippingFeePaid, hasKeep } = row;
                 const isSelected = selectedIndices.includes(index);
 
-                // 배송비완료/Keep 상태에 따른 행 배경색 결정
+                // 배송비완료/Keep 상태에 따른 행 배경색 및 강조 테두리 결정
                 let rowBg = 'transparent';
                 let rowLeftBorder = 'none';
+                
+                // 더 진하고 식별하기 쉬운 harmonized color 조합
                 if (isSelected) {
-                  rowBg = hexToRgba(feeColor, 0.04);
+                  rowBg = '#e2e8f0'; // 선택된 체크박스 행은 명확하게 회색조로 하이라이트
+                  rowLeftBorder = '3px solid #64748b';
                 } else if (hasShippingFeePaid && hasKeep) {
-                  rowBg = `linear-gradient(90deg, ${hexToRgba(feeColor, 0.06)} 0%, ${hexToRgba(keepColor, 0.06)} 100%)`;
-                  rowLeftBorder = `3px solid ${keepColor}`;
+                  rowBg = `linear-gradient(90deg, ${hexToRgba(feeColor, 0.09)} 0%, ${hexToRgba(keepColor, 0.09)} 100%)`;
+                  rowLeftBorder = `5px solid ${keepColor}`;
                 } else if (hasKeep) {
-                  rowBg = hexToRgba(keepColor, 0.05);
-                  rowLeftBorder = `3px solid ${keepColor}`;
+                  rowBg = hexToRgba(keepColor, 0.08);
+                  rowLeftBorder = `5px solid ${keepColor}`;
                 } else if (hasShippingFeePaid) {
-                  rowBg = hexToRgba(feeColor, 0.05);
-                  rowLeftBorder = `3px solid ${feeColor}`;
+                  rowBg = hexToRgba(feeColor, 0.08);
+                  rowLeftBorder = `5px solid ${feeColor}`;
                 }
 
                 return (
-                  <tr key={index} style={{ borderBottom: '1px solid var(--border-color)', background: rowBg.includes('gradient') ? undefined : rowBg, backgroundImage: rowBg.includes('gradient') ? rowBg : undefined, borderLeft: rowLeftBorder }}>
+                  <tr key={index} style={{ borderBottom: '1px solid var(--border-color)', background: rowBg.includes('gradient') ? undefined : rowBg, backgroundImage: rowBg.includes('gradient') ? rowBg : undefined, borderLeft: rowLeftBorder, transition: 'all 0.1s ease' }}>
                     <td className="no-print" style={{ padding: '8px 12px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
@@ -666,7 +706,17 @@ export default function Shipping({ onDataChange }) {
                       onClick={(e) => { e.stopPropagation(); openEditModal(row); }}
                       title="클릭하여 고객 정보 수정"
                     >
-                      {customer.nickname ? `[${customer.nickname}] ` : ''}{customer.name}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {customer.nickname ? `[${customer.nickname}] ` : ''}{customer.name}
+                        <div style={{ display: 'inline-flex', gap: '3px' }}>
+                          {hasShippingFeePaid && (
+                            <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '4px', background: feeColor, color: '#fff', fontWeight: 'bold' }}>🚚료</span>
+                          )}
+                          {hasKeep && (
+                            <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '4px', background: keepColor, color: '#fff', fontWeight: 'bold' }}>📦킵</span>
+                          )}
+                        </div>
+                      </div>
                     </td>
 
                     {/* 2. 연락처 */}

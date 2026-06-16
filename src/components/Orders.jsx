@@ -160,7 +160,11 @@ export default function Orders({ onDataChange }) {
 
   const selectCust = (cust) => {
     setSelectedCustomer(cust);
-    setCustQuery(cust.nickname || cust.name);
+    // 닉네임과 이름이 다르면 함께 표시하여 동일 닉네임 고객 구분
+    const displayName = cust.nickname
+      ? (cust.nickname !== cust.name ? `[${cust.nickname}] ${cust.name}` : cust.nickname)
+      : cust.name;
+    setCustQuery(displayName);
     setShowCustDropdown(false);
     // 고객 선택 시 상품 행 표시
     if (!showOrderLines) {
@@ -195,13 +199,27 @@ export default function Orders({ onDataChange }) {
       return;
     }
 
-    // 고객정보 유효성 검증
+    // 고객정보 유효성 검증 — 드롭다운에서 선택한 고객이 있으면 우선 사용
     const typedQuery = custQuery.trim();
-    let matchCust = customers.find(c => c.nickname === typedQuery || c.name === typedQuery);
-    if (!matchCust && typedQuery.startsWith('[') && typedQuery.includes(']')) {
-      const closingBracketIdx = typedQuery.indexOf(']');
-      const parsedNickname = typedQuery.substring(1, closingBracketIdx).trim();
-      matchCust = customers.find(c => c.nickname === parsedNickname);
+    let matchCust = selectedCustomer;
+    if (!matchCust) {
+      const matchedList = customers.filter(c => c.nickname === typedQuery || c.name === typedQuery);
+      if (matchedList.length > 1) {
+        alert(`동일한 닉네임/이름을 가진 고객이 ${matchedList.length}명 존재합니다. 검색 결과 드롭다운에서 구분하여 클릭해 주세요.`);
+        return;
+      }
+      matchCust = matchedList[0];
+
+      if (!matchCust && typedQuery.startsWith('[') && typedQuery.includes(']')) {
+        const closingBracketIdx = typedQuery.indexOf(']');
+        const parsedNickname = typedQuery.substring(1, closingBracketIdx).trim();
+        const matchedListBrackets = customers.filter(c => c.nickname === parsedNickname);
+        if (matchedListBrackets.length > 1) {
+          alert(`동일한 닉네임/이름을 가진 고객이 ${matchedListBrackets.length}명 존재합니다. 검색 결과 드롭다운에서 구분하여 클릭해 주세요.`);
+          return;
+        }
+        matchCust = matchedListBrackets[0];
+      }
     }
     if (!matchCust) {
       alert('회원정보(고객)에 존재하지 않는 닉네임/이름입니다. 회원정보 탭에서 먼저 고객을 등록해주세요.');
@@ -228,8 +246,10 @@ export default function Orders({ onDataChange }) {
       const unitPrice = matchProd.selling_price;
       newItems.push({
         id: Date.now() + Math.random(),
-        custQuery: typedQuery,
-        selectedCustomer: matchCust,
+        customerId: matchCust.customer_id,
+        custDisplayName: matchCust.nickname
+          ? (matchCust.nickname !== matchCust.name ? `[${matchCust.nickname}] ${matchCust.name}` : matchCust.nickname)
+          : matchCust.name,
         prodQuery: line.productName.trim(),
         selectedProduct: matchProd,
         quantity: Number(line.quantity),
@@ -252,13 +272,27 @@ export default function Orders({ onDataChange }) {
       return;
     }
 
-    // 고객정보 유효성 검증
+    // 고객정보 유효성 검증 — 드롭다운에서 선택한 고객이 있으면 우선 사용
     const typedQuery = custQuery.trim();
-    let matchCust = customers.find(c => c.nickname === typedQuery || c.name === typedQuery);
-    if (!matchCust && typedQuery.startsWith('[') && typedQuery.includes(']')) {
-      const closingBracketIdx = typedQuery.indexOf(']');
-      const parsedNickname = typedQuery.substring(1, closingBracketIdx).trim();
-      matchCust = customers.find(c => c.nickname === parsedNickname);
+    let matchCust = selectedCustomer;
+    if (!matchCust) {
+      const matchedList = customers.filter(c => c.nickname === typedQuery || c.name === typedQuery);
+      if (matchedList.length > 1) {
+        alert(`동일한 닉네임/이름을 가진 고객이 ${matchedList.length}명 존재합니다. 검색 결과 드롭다운에서 구분하여 클릭해 주세요.`);
+        return;
+      }
+      matchCust = matchedList[0];
+
+      if (!matchCust && typedQuery.startsWith('[') && typedQuery.includes(']')) {
+        const closingBracketIdx = typedQuery.indexOf(']');
+        const parsedNickname = typedQuery.substring(1, closingBracketIdx).trim();
+        const matchedListBrackets = customers.filter(c => c.nickname === parsedNickname);
+        if (matchedListBrackets.length > 1) {
+          alert(`동일한 닉네임/이름을 가진 고객이 ${matchedListBrackets.length}명 존재합니다. 검색 결과 드롭다운에서 구분하여 클릭해 주세요.`);
+          return;
+        }
+        matchCust = matchedListBrackets[0];
+      }
     }
     if (!matchCust) {
       alert('회원정보(고객)에 존재하지 않는 닉네임/이름입니다. 회원정보 탭에서 먼저 고객을 등록해주세요.');
@@ -346,16 +380,9 @@ export default function Orders({ onDataChange }) {
     setLoading(true);
     try {
       for (const item of cartItems) {
-        let custId = item.selectedCustomer ? item.selectedCustomer.customer_id : null;
+        const custId = item.customerId;
         if (!custId) {
-          const match = customers.find(c => c.name === item.custQuery || c.nickname === item.custQuery);
-          if (match) {
-            custId = match.customer_id;
-          }
-        }
-
-        if (!custId) {
-          throw new Error(`고객 정보를 찾을 수 없습니다: ${item.custQuery}`);
+          throw new Error(`고객 정보를 찾을 수 없습니다: ${item.custDisplayName}`);
         }
 
         const { error: ordErr } = await supabase
@@ -896,7 +923,7 @@ export default function Orders({ onDataChange }) {
                     <li key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#ffffff', border: '1px solid #e2e8f8', borderRadius: '6px', fontSize: '13px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '12px', color: '#6d7980', fontFamily: "'JetBrains Mono', monospace", width: '20px' }}>{idx + 1}</span>
-                        <span style={{ fontWeight: 600, color: '#006688', minWidth: '80px' }}>{item.custQuery}</span>
+                        <span style={{ fontWeight: 600, color: '#006688', minWidth: '80px' }}>{item.custDisplayName}</span>
                         <span style={{ color: '#3d484f' }}>{item.prodQuery} <span style={{ fontWeight: 600 }}>({item.quantity}개)</span></span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
